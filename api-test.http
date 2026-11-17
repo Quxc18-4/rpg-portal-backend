@@ -1,0 +1,16 @@
+@baseUrl = http://localhost:5000/api/v1
+
+### 1. Health Check
+GET {{baseUrl}}/health
+
+### 2. Bang xep hang nguoi choi
+GET {{baseUrl}}/players/leaderboard
+
+### 3. Xem ho so nhan vat cong khai
+GET {{baseUrl}}/players/dmquxc
+
+### 4. Xem bang gia thi truong Global Economy
+GET {{baseUrl}}/market/prices
+
+### 5. Xem ban do chien su World Zones & Ecosystems
+GET {{baseUrl}}/world/zones
