@@ -239,6 +239,27 @@ const MESSAGES = {
     vi: 'Lấy toàn bộ dữ liệu nghề phụ trên máy chủ thành công',
     en: 'All server jobs retrieved successfully',
   },
+  // Rewards, Licenses & World Ecosystem
+  PLAYER_REWARDS_SUCCESS: {
+    vi: 'Lấy thông tin quà tặng và điểm danh thành công',
+    en: 'Player rewards and check-in status retrieved successfully',
+  },
+  MARKET_LICENSES_SUCCESS: {
+    vi: 'Lấy danh sách tiến độ giấy phép giao thương thành công',
+    en: 'Trade license contribution milestones retrieved successfully',
+  },
+  WORLD_ECOSYSTEMS_SUCCESS: {
+    vi: 'Lấy dữ liệu bản đồ hệ sinh thái thành công',
+    en: 'World ecosystem and territory data retrieved successfully',
+  },
+  SERVER_STATUS_SUCCESS: {
+    vi: 'Lấy trạng thái máy chủ thành công',
+    en: 'Minecraft server status retrieved successfully',
+  },
+  OPERATOR_REWARDS_ALL_SUCCESS: {
+    vi: 'Lấy toàn bộ dữ liệu quà tặng người chơi thành công',
+    en: 'All server player rewards retrieved successfully',
+  },
 };
 
 const normalizeLang = (rawLang) => {
