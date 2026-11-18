@@ -35,7 +35,10 @@ class AuthService {
     }
 
     const uuid = account._id;
-    const token = this.signToken({ uuid, username: account.playerName });
+    const webAccount = await authRepo.findOrCreateWebAccount(uuid, account.playerName);
+    const role = webAccount?.role || 'USER';
+
+    const token = this.signToken({ uuid, username: account.playerName, role });
 
     return {
       token,
@@ -43,6 +46,7 @@ class AuthService {
         uuid,
         username: account.playerName,
         email: account.email,
+        role,
       },
     };
   }
@@ -81,6 +85,7 @@ class AuthService {
       // Chưa liên kết -> trả về thông tin Discord để Frontend hiện form nhập user/pass in-game 1 lần
       return {
         isLinked: false,
+        role: 'GUEST',
         discordProfile: {
           discordId: discordUser.id,
           discordUsername: discordUser.username,
@@ -89,11 +94,12 @@ class AuthService {
       };
     }
 
-    const token = this.signToken({ uuid: linked.uuid, username: linked.username });
+    const role = linked.role || 'USER';
+    const token = this.signToken({ uuid: linked.uuid, username: linked.username, role });
     return {
       isLinked: true,
       token,
-      user: { uuid: linked.uuid, username: linked.username },
+      user: { uuid: linked.uuid, username: linked.username, role },
     };
   }
 
@@ -107,7 +113,7 @@ class AuthService {
       discordAvatar,
     });
 
-    const token = this.signToken({ uuid: user.uuid, username: user.username });
+    const token = this.signToken({ uuid: user.uuid, username: user.username, role: user.role });
     return { token, user };
   }
 }

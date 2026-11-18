@@ -181,6 +181,39 @@ const MESSAGES = {
     vi: 'Lấy danh sách điểm dịch chuyển trên bản đồ thành công',
     en: 'World waystones retrieved successfully',
   },
+  // RBAC & Admin Moderation
+  INVALID_ROLE: {
+    vi: 'Vai trò phân quyền không hợp lệ',
+    en: 'Invalid role specified',
+  },
+  ROLE_UPDATED_SUCCESS: {
+    vi: 'Cập nhật vai trò người dùng thành công',
+    en: 'User role updated successfully',
+  },
+  MOD_ACTION_NOT_ALLOWED: {
+    vi: 'Moderator không có quyền thực hiện thao tác này',
+    en: 'Moderators are not permitted to perform this action',
+  },
+  MOD_LIMIT_EXCEEDED: {
+    vi: 'Thao tác vượt quá giới hạn cho phép của Moderator ({limit})',
+    en: 'Action exceeds Moderator policy limit ({limit})',
+  },
+  POLICY_UPDATED_SUCCESS: {
+    vi: 'Cập nhật giới hạn quyền Moderator thành công',
+    en: 'Moderator policy updated successfully',
+  },
+  ADMIN_INSPECT_SUCCESS: {
+    vi: 'Truy xuất dữ liệu kiểm tra thành công',
+    en: 'Inspection data retrieved successfully',
+  },
+  ACTION_QUEUED_SUCCESS: {
+    vi: 'Đã gửi lệnh thực thi tới máy chủ thành công',
+    en: 'Action queued for server execution successfully',
+  },
+  CANNOT_MODIFY_SELF_ROLE: {
+    vi: 'Không thể tự thay đổi vai trò của chính mình',
+    en: 'You cannot modify your own role',
+  },
 };
 
 const normalizeLang = (rawLang) => {
