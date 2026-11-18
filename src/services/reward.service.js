@@ -34,6 +34,29 @@ class RewardService {
     });
   }
 
+  parseBountyRewardMap(pendingMap = {}) {
+    if (!pendingMap || typeof pendingMap !== 'object') return [];
+
+    return Object.entries(pendingMap).map(([bountyId, rawStr]) => {
+      // Định dạng từ BountyCheckTask.java: finalPlayerMoney:finalPlayerRep:itemDrop:amount:zoneName
+      const parts = String(rawStr || '').split(':');
+      const rawCoins = Number(parts[0] || 0);
+      const reputation = Number(parts[1] || 0);
+      const itemId = parts[2] && parts[2] !== 'NONE' ? parts[2] : null;
+      const itemAmount = Number(parts[3] || 0);
+      const zoneName = parts.slice(4).join(':') || bountyId;
+
+      return {
+        bountyId,
+        zoneName,
+        rawCoins,
+        coins: formatCurrency(rawCoins),
+        reputation,
+        itemReward: itemId ? { itemId, amount: itemAmount } : null,
+      };
+    });
+  }
+
   async getPlayerRewards(uuid, options = {}) {
     const [templates, rewardDoc, questDoc] = await Promise.all([
       rewardRepo.getAllRewardTemplates(),
@@ -85,6 +108,24 @@ class RewardService {
     const canClaimToday = monthlyLastClaim === 0 || lastClaimDateVN !== todayVN;
     const nextDayToClaim = monthlyProgress >= 31 ? 1 : monthlyProgress + 1;
 
+    const days = [...monthlyMap.entries()]
+      .sort(([dayA], [dayB]) => dayA - dayB)
+      .map(([day, items]) => {
+        let status = 'UPCOMING';
+        if (day <= monthlyProgress) {
+          status = 'CLAIMED';
+        } else if (day === nextDayToClaim && canClaimToday) {
+          status = 'AVAILABLE';
+        }
+
+        return {
+          day,
+          isClaimed: day <= monthlyProgress,
+          status,
+          items,
+        };
+      });
+
     // 3. Quà Bounty Clear Zone đang chờ nhận tại Tiếp Tân Bang Hội
     const pendingBounties = this.parseBountyRewardMap(questDoc?.pending_bounty_rewards);
 
@@ -97,6 +138,7 @@ class RewardService {
         lastClaimedAt: monthlyLastClaim,
         canClaimToday,
         nextDayRewards: monthlyMap.get(nextDayToClaim) || [],
+        days,
       },
       bountyRewards: {
         pendingCount: pendingBounties.length,
