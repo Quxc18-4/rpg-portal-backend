@@ -2,6 +2,7 @@ const operatorService = require('../services/operator.service');
 const safezoneService = require('../services/safezone.service');
 const denService = require('../services/den.service');
 const ecosystemService = require('../services/ecosystem.service');
+const rewardService = require('../services/reward.service');
 const ApiResponse = require('../utils/apiResponse.util');
 const { resolveLang } = require('../utils/language.util');
 
@@ -229,6 +230,26 @@ class OperatorController {
     try {
       const data = await ecosystemService.getAllEcosystems();
       return ApiResponse.success(res, data, 'WORLD_ECOSYSTEMS_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+  // Thêm vào trong class OperatorController:
+  async getAllRewards(req, res, next) {
+    try {
+      const data = await rewardService.getAllRewardsAdmin();
+      return ApiResponse.success(res, data, 'OPERATOR_REWARDS_ALL_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async inspectPlayerRewards(req, res, next) {
+    try {
+      const target = await operatorService.resolveTargetPlayer(req.params.username);
+      const includeRaw = req.query.raw === 'true';
+      const data = await rewardService.getPlayerRewards(target._id, { includeRaw });
+      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
     } catch (error) {
       next(error);
     }

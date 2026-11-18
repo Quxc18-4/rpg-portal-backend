@@ -1,6 +1,7 @@
 const operatorRepo = require('../repositories/operator.repository');
 const playerRepo = require('../repositories/player.repository');
 const authRepo = require('../repositories/auth.repository');
+const cropRepo = require('../repositories/crop.repository');
 const playerService = require('./player.service');
 const jobService = require('./job.service');
 const mountService = require('./mount.service');
@@ -176,7 +177,7 @@ class OperatorService {
   }
 
   async getAllCropsAdmin() {
-    const uuids = await operatorRepo.findAllCropOwnerUuids();
+    const uuids = await cropRepo.findAllOwnerUuids();
     const usernameMap = await operatorRepo.buildUsernameMap(uuids);
 
     const records = await Promise.all(

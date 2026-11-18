@@ -199,14 +199,6 @@ class OperatorRepository {
     return docs.map((d) => d._id);
   }
 
-  async findAllCropOwnerUuids() {
-    const docs = await mongoose.connection.db
-      .collection('crops')
-      .find({}, { projection: { _id: 1 } })
-      .toArray();
-    return docs.map((d) => d._id);
-  }
-
   async findAllJobOwnerUuids() {
     const docs = await mongoose.connection.db
       .collection('player_jobs')

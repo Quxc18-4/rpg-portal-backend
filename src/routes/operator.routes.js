@@ -17,6 +17,7 @@ router.get('/logs', operatorController.getAuditLogs);
 router.get('/safezones', operatorController.getAllSafezones);
 router.get('/dens', operatorController.getAllDens);
 router.get('/ecosystems', operatorController.getAllEcosystems);
+router.get('/rewards', operatorController.getAllRewards);
 
 // 2. Inspect chi tiết từng người chơi (MODERATOR + ADMIN)
 router.get('/players/:username/inspect', operatorController.inspectPlayer);
@@ -26,6 +27,7 @@ router.get('/players/:username/jobs', operatorController.inspectPlayerJobs);
 router.get('/players/:username/mounts', operatorController.inspectPlayerMounts);
 router.get('/players/:username/crops', operatorController.inspectPlayerCrops);
 router.get('/players/:username/waystones', operatorController.inspectPlayerWaystones);
+router.get('/players/:username/rewards', operatorController.inspectPlayerRewards);
 
 // 3. Hàng đợi thực thi lệnh (MODERATOR theo giới hạn policy / ADMIN không giới hạn)
 router.post('/players/:username/actions', operatorController.executeAction);

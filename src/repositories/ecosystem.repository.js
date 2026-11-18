@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 class EcosystemRepository {
   async findAll() {
-    return mongoose.connection.db.collection('world_ecosystem').find({}).toArray();
+    return mongoose.connection.db.collection('world_ecosystems').find({}).toArray();
   }
 }
 
