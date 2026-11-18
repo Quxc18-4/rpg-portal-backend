@@ -1,31 +1,14 @@
 const rewardRepo = require('../repositories/reward.repository');
 const operatorRepo = require('../repositories/operator.repository');
 const { formatCurrency } = require('../utils/currency.util');
-const nbtUtil = require('../utils/nbt.util');
+const { decodeItemStackBase64 } = require('../utils/itemDecoder.util');
 
-function tryDecodeBukkitItems(base64Str, options = {}) {
-  if (!base64Str || typeof base64Str !== 'string') return [];
-  const decoder =
-    nbtUtil.decodeBukkitBase64 ||
-    nbtUtil.decodeInventoryBase64 ||
-    nbtUtil.parseItemStackArray ||
-    nbtUtil.decodeItems;
-
-  if (typeof decoder !== 'function') return [];
-  try {
-    const decoded = decoder(base64Str, options);
-    return Array.isArray(decoded) ? decoded : decoded?.items || [];
-  } catch (_) {
-    return [];
-  }
-}
-
-function getVietnamDateString(timestampMs) {
+const getVietnamDateString = (timestampMs) => {
   if (!timestampMs || Number(timestampMs) <= 0) return null;
   return new Date(Number(timestampMs)).toLocaleDateString('en-CA', {
     timeZone: 'Asia/Ho_Chi_Minh',
   });
-}
+};
 
 class RewardService {
   parseBountyRewardMap(pendingMap = {}) {
@@ -82,12 +65,12 @@ class RewardService {
           nextAvailableAt,
           remainingMs,
           canClaim: remainingMs === 0,
-          items: tryDecodeBukkitItems(tpl.items, options),
+          items: decodeItemStackBase64(tpl.items, options),
         });
       } else if (id.startsWith('monthly_')) {
         const day = Number(id.replace('monthly_', ''));
         if (!Number.isNaN(day)) {
-          monthlyMap.set(day, tryDecodeBukkitItems(tpl.items, options));
+          monthlyMap.set(day, decodeItemStackBase64(tpl.items, options));
         }
       }
     }

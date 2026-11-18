@@ -8,6 +8,7 @@ const cropService = require('./crop.service');
 const waystoneService = require('./waystone.service');
 const { formatCurrency } = require('../utils/currency.util');
 const { AppError } = require('../utils/error.util');
+const { matchDecodedItem } = require('../utils/itemDecoder.util');
 
 const VALID_ROLES = ['GUEST', 'USER', 'MODERATOR', 'ADMIN'];
 
@@ -63,85 +64,20 @@ class OperatorService {
     return waystoneService.getMyWaystones(target._id);
   }
 
-  extractSearchableText(value, depth = 0) {
-    if (value == null || depth > 5) return '';
-    if (typeof value === 'string') {
-      if (value.length > 500 && !value.includes(' ')) return '';
-      return value;
-    }
-    if (typeof value === 'number' || typeof value === 'boolean') {
-      return String(value);
-    }
-    if (Array.isArray(value)) {
-      return value.map((v) => this.extractSearchableText(v, depth + 1)).join(' ');
-    }
-    if (typeof value === 'object') {
-      return Object.entries(value)
-        .filter(([k]) => k !== 'raw' && k !== 'inventoryBase64' && k !== 'nbt')
-        .map(([, v]) => this.extractSearchableText(v, depth + 1))
-        .join(' ');
-    }
-    return '';
-  }
-
-  matchItemKeyword(item, normalizedKeyword) {
-    if (!item || typeof item !== 'object') return false;
-    const haystack = this.extractSearchableText(item).toLowerCase().normalize('NFC');
-    return haystack.includes(normalizedKeyword);
-  }
-
-  async searchPlayerMountStorage(uuid, normalizedKeyword, options = {}) {
+  async searchPlayerMountStorage(uuid, keyword, options = {}) {
     const mountData = await mountService.getMyMounts(uuid, options);
-
-    const mountsList = Array.isArray(mountData)
-      ? mountData
-      : Array.isArray(mountData?.mounts)
-        ? mountData.mounts
-        : mountData?.mounts && typeof mountData.mounts === 'object'
-          ? Object.entries(mountData.mounts).map(([slot, m]) => ({ slot, ...m }))
-          : [];
-
+    const mountsList = Array.isArray(mountData?.mounts) ? mountData.mounts : [];
     const matchedMountItems = [];
 
     for (const mount of mountsList) {
-      if (!mount || typeof mount !== 'object') continue;
-
-      const slotId = mount.slot ?? mount.slotId ?? mount.index ?? '?';
+      const slotId = mount.slot ?? '?';
       const mountLabel = mount.customName || mount.type || `Mount #${slotId}`;
+      const saddleItems = Array.isArray(mount.saddleStorage?.items)
+        ? mount.saddleStorage.items
+        : [];
 
-      const storageCandidates = [
-        mount.saddleStorage?.items,
-        mount.saddleStorage,
-        mount.storage?.items,
-        mount.storage?.contents,
-        mount.storage?.slots,
-        mount.storage,
-        mount.inventory?.items,
-        mount.inventory?.contents,
-        mount.inventory?.slots,
-        mount.inventory,
-        mount.bag?.items,
-        mount.bag,
-        mount.items,
-      ];
-
-      let rawItems = [];
-      for (const candidate of storageCandidates) {
-        if (Array.isArray(candidate) && candidate.length > 0) {
-          rawItems = candidate;
-          break;
-        }
-        if (candidate && typeof candidate === 'object' && !Array.isArray(candidate)) {
-          const objectValues = Object.values(candidate).filter((v) => v && typeof v === 'object');
-          if (objectValues.length > 0) {
-            rawItems = objectValues;
-            break;
-          }
-        }
-      }
-
-      for (const item of rawItems) {
-        if (this.matchItemKeyword(item, normalizedKeyword)) {
+      for (const item of saddleItems) {
+        if (matchDecodedItem(item, keyword)) {
           matchedMountItems.push({
             ...item,
             source: `MOUNT_${slotId}`,
@@ -161,15 +97,15 @@ class OperatorService {
     }
 
     const target = await this.resolveTargetPlayer(username);
-    const normalizedKeyword = String(keyword).trim().toLowerCase().normalize('NFC');
+    const cleanKeyword = String(keyword).trim().normalize('NFC');
 
     const [baseFound, mountItems] = await Promise.all([
       playerService.searchMyInventory(
         { uuid: target._id, username: target.username },
-        String(keyword).trim().normalize('NFC'),
+        cleanKeyword,
         options
       ),
-      this.searchPlayerMountStorage(target._id, normalizedKeyword, options),
+      this.searchPlayerMountStorage(target._id, cleanKeyword, options),
     ]);
 
     const baseItems = Array.isArray(baseFound)
@@ -185,7 +121,7 @@ class OperatorService {
     return {
       uuid: target._id,
       username: target.username,
-      keyword: String(keyword).trim().normalize('NFC'),
+      keyword: cleanKeyword,
       totalMatched: combinedItems.length,
       totalQuantity,
       items: combinedItems,
@@ -239,67 +175,25 @@ class OperatorService {
     };
   }
 
-  formatCropLocations(locations = {}) {
-    if (!locations || typeof locations !== 'object') {
-      return { totalPlots: 0, readyCount: 0, plots: [] };
-    }
-
-    const now = Date.now();
-    const plots = Object.entries(locations).map(([locKey, info]) => {
-      const [world, x, y, z] = String(locKey).split(',');
-      const plantTime = Number(info?.plantTime || 0);
-      const reqTime = Number(info?.reqTime || 0);
-      const readyAt = plantTime + reqTime;
-      const isReady = now >= readyAt;
-      const remainingMs = Math.max(0, readyAt - now);
-      const progressPercent =
-        reqTime > 0 ? Math.min(100, Math.max(0, Math.round(((now - plantTime) / reqTime) * 100))) : 100;
-
-      return {
-        locationKey: locKey,
-        coordinates: {
-          world: world || 'world',
-          x: Number(x),
-          y: Number(y),
-          z: Number(z),
-        },
-        seedId: info?.seedId || null,
-        harvestsLeft: Number(info?.harvestsLeft ?? 0),
-        maxHarvests: Number(info?.maxHarvests ?? 1),
-        plantTime,
-        reqTime,
-        readyAt,
-        isReady,
-        remainingMs,
-        progressPercent,
-      };
-    });
-
-    return {
-      totalPlots: plots.length,
-      readyCount: plots.filter((p) => p.isReady).length,
-      plots,
-    };
-  }
-
   async getAllCropsAdmin() {
-    const docs = await operatorRepo.findAllCropDocs();
-    const uuids = docs.map((d) => d._id);
+    const uuids = await operatorRepo.findAllCropOwnerUuids();
     const usernameMap = await operatorRepo.buildUsernameMap(uuids);
 
-    const records = docs.map((doc) => {
-      const formatted = this.formatCropLocations(doc.locations);
-      return {
-        uuid: doc._id,
-        username: usernameMap.get(doc._id) || 'Unknown',
-        ...formatted,
-      };
-    });
+    const records = await Promise.all(
+      uuids.map(async (uuid) => {
+        const data = await cropService.getMyCrops(uuid);
+        return {
+          uuid,
+          username: usernameMap.get(uuid) || 'Unknown',
+          ...data,
+        };
+      })
+    );
 
     return {
       totalFarmers: records.length,
-      totalCrops: records.reduce((sum, r) => sum + r.totalPlots, 0),
-      totalReadyCrops: records.reduce((sum, r) => sum + r.readyCount, 0),
+      totalCrops: records.reduce((sum, r) => sum + (Number(r.totalPlots) || 0), 0),
+      totalReadyCrops: records.reduce((sum, r) => sum + (Number(r.readyCount) || 0), 0),
       records,
     };
   }
@@ -331,7 +225,6 @@ class OperatorService {
     }
 
     const cleanKeyword = String(keyword).trim().normalize('NFC');
-    const normalizedKeyword = cleanKeyword.toLowerCase();
     const players = await operatorRepo.findAllPlayerUsernamesForScan(200);
     const matches = [];
 
@@ -349,7 +242,7 @@ class OperatorService {
               cleanKeyword,
               options
             ),
-            this.searchPlayerMountStorage(p._id, normalizedKeyword, options),
+            this.searchPlayerMountStorage(p._id, cleanKeyword, options),
           ]);
 
           const baseItems = Array.isArray(baseFound)

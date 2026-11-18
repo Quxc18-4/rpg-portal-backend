@@ -1,4 +1,7 @@
 const operatorService = require('../services/operator.service');
+const safezoneService = require('../services/safezone.service');
+const denService = require('../services/den.service');
+const ecosystemService = require('../services/ecosystem.service');
 const ApiResponse = require('../utils/apiResponse.util');
 const { resolveLang } = require('../utils/language.util');
 
@@ -200,6 +203,32 @@ class OperatorController {
     try {
       const data = await operatorService.getAllJobsAdmin();
       return ApiResponse.success(res, data, 'OPERATOR_JOBS_ALL_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+  async getAllSafezones(req, res, next) {
+    try {
+      const data = await safezoneService.getAllSafezones();
+      return ApiResponse.success(res, data, 'WORLD_SAFEZONES_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAllDens(req, res, next) {
+    try {
+      const data = await denService.getDens({ includeExpired: true });
+      return ApiResponse.success(res, data, 'WORLD_DENS_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAllEcosystems(req, res, next) {
+    try {
+      const data = await ecosystemService.getAllEcosystems();
+      return ApiResponse.success(res, data, 'WORLD_ECOSYSTEMS_SUCCESS');
     } catch (error) {
       next(error);
     }

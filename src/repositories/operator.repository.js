@@ -199,9 +199,12 @@ class OperatorRepository {
     return docs.map((d) => d._id);
   }
 
-  async findAllCropDocs() {
-    const colName = await this.resolveCollectionName(['player_crops', 'crops', 'Crop']);
-    return mongoose.connection.db.collection(colName).find({}).toArray();
+  async findAllCropOwnerUuids() {
+    const docs = await mongoose.connection.db
+      .collection('crops')
+      .find({}, { projection: { _id: 1 } })
+      .toArray();
+    return docs.map((d) => d._id);
   }
 
   async findAllJobOwnerUuids() {

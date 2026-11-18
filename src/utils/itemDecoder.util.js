@@ -680,7 +680,28 @@ const decodeTrinketsMap = (trinketsObj, options = {}) => {
   return result;
 };
 
+const matchDecodedItem = (item, keyword) => {
+  if (!item || typeof item !== 'object' || !keyword) return false;
+  const normalizedKeyword = String(keyword).trim().toLowerCase().normalize('NFC');
+  if (!normalizedKeyword) return false;
+
+  const parts = [
+    item.displayName,
+    item.type,
+    Array.isArray(item.lore) ? item.lore.join(' ') : '',
+    item.tags && typeof item.tags === 'object' ? Object.values(item.tags).join(' ') : '',
+  ];
+
+  return parts
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .normalize('NFC')
+    .includes(normalizedKeyword);
+};
+
 module.exports = {
   decodeItemStackBase64,
   decodeTrinketsMap,
+  matchDecodedItem,
 };
