@@ -160,6 +160,27 @@ const MESSAGES = {
     vi: '{bagName} [{parentLocation} -> Slot {bagSlot}] - Ô số {slot}',
     en: '{bagName} [{parentLocation} -> Slot {bagSlot}] - Slot {slot}',
   },
+  // Private Assets (Jobs, Mounts, Crops, Waystones)
+  JOBS_SUCCESS: {
+    vi: 'Lấy dữ liệu nghề phụ thành công',
+    en: 'Player jobs data retrieved successfully',
+  },
+  MOUNTS_SUCCESS: {
+    vi: 'Lấy dữ liệu thú cưỡi thành công',
+    en: 'Player mounts data retrieved successfully',
+  },
+  CROPS_SUCCESS: {
+    vi: 'Lấy dữ liệu vườn cây thành công',
+    en: 'Player crops data retrieved successfully',
+  },
+  WAYSTONES_SUCCESS: {
+    vi: 'Lấy dữ liệu điểm dịch chuyển cá nhân thành công',
+    en: 'Personal waystones retrieved successfully',
+  },
+  WORLD_WAYSTONES_SUCCESS: {
+    vi: 'Lấy danh sách điểm dịch chuyển trên bản đồ thành công',
+    en: 'World waystones retrieved successfully',
+  },
 };
 
 const normalizeLang = (rawLang) => {
