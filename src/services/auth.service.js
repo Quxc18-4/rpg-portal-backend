@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const authRepo = require('../repositories/auth.repository');
+const { AppError } = require('../utils/error.util');
 
 class AuthService {
   signToken(payload) {
@@ -25,16 +26,12 @@ class AuthService {
   async loginWithInGameAccount(username, password) {
     const account = await authRepo.findInGameAccountByUsername(username);
     if (!account) {
-      const err = new Error('Tài khoản không tồn tại trong hệ thống');
-      err.statusCode = 401;
-      throw err;
+      throw AppError.unauthorized('ACCOUNT_NOT_FOUND');
     }
 
     const isMatch = this.verifyPassword(password, account.password);
     if (!isMatch) {
-      const err = new Error('Mật khẩu không chính xác');
-      err.statusCode = 401;
-      throw err;
+      throw AppError.unauthorized('INCORRECT_PASSWORD');
     }
 
     const uuid = account._id;

@@ -6,10 +6,10 @@ class AuthController {
     try {
       const { username, password } = req.body;
       if (!username || !password) {
-        return ApiResponse.error(res, 'Vui lòng nhập đầy đủ username và password', 400);
+        return ApiResponse.error(res, 'MISSING_CREDENTIALS', 400);
       }
       const result = await authService.loginWithInGameAccount(username, password);
-      return ApiResponse.success(res, result, 'Đăng nhập thành công');
+      return ApiResponse.success(res, result, 'LOGIN_SUCCESS');
     } catch (error) {
       next(error);
     }
@@ -22,7 +22,7 @@ class AuthController {
   async discordCallback(req, res, next) {
     try {
       const { code } = req.query;
-      if (!code) return ApiResponse.error(res, 'Thiếu mã xác thực Discord', 400);
+      if (!code) return ApiResponse.error(res, 'MISSING_DISCORD_CODE', 400);
 
       const result = await authService.handleDiscordCallback(code);
       return ApiResponse.success(res, result);
@@ -34,7 +34,7 @@ class AuthController {
   async linkDiscord(req, res, next) {
     try {
       const result = await authService.linkDiscordAccount(req.body);
-      return ApiResponse.success(res, result, 'Liên kết tài khoản Discord thành công');
+      return ApiResponse.success(res, result, 'DISCORD_LINK_SUCCESS');
     } catch (error) {
       next(error);
     }
