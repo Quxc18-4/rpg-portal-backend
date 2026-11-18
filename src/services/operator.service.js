@@ -6,19 +6,24 @@ const jobService = require('./job.service');
 const mountService = require('./mount.service');
 const cropService = require('./crop.service');
 const waystoneService = require('./waystone.service');
+const { formatCurrency } = require('../utils/currency.util');
 const { AppError } = require('../utils/error.util');
 
 const VALID_ROLES = ['GUEST', 'USER', 'MODERATOR', 'ADMIN'];
 
 class OperatorService {
-  // ======================== 1. QUYỀN ĐỌC (R: MODERATOR & ADMIN) ========================
-
-  async inspectPlayerOverview(username, options = {}) {
+  async resolveTargetPlayer(username) {
     const target = await playerRepo.findByUsername(username);
     if (!target) {
       throw AppError.notFound('PLAYER_NOT_FOUND');
     }
+    return target;
+  }
 
+  // ======================== 1. QUYỀN ĐỌC CHI TIẾT (INSPECT) ========================
+
+  async inspectPlayerOverview(username, options = {}) {
+    const target = await this.resolveTargetPlayer(username);
     const ownerViewer = { uuid: target._id, username: target.username };
 
     const [profile, inventory, jobs, mounts, crops, waystones] = await Promise.all([
@@ -30,23 +35,96 @@ class OperatorService {
       waystoneService.getMyWaystones(target._id),
     ]);
 
-    return {
-      profile,
-      inventory,
-      jobs,
-      mounts,
-      crops,
-      waystones,
-    };
+    return { profile, inventory, jobs, mounts, crops, waystones };
+  }
+
+  async inspectPlayerInventory(username, options = {}) {
+    const target = await this.resolveTargetPlayer(username);
+    return playerService.getMyInventory({ uuid: target._id, username: target.username }, options);
+  }
+
+  async inspectPlayerJobs(username) {
+    const target = await this.resolveTargetPlayer(username);
+    return jobService.getMyJobs(target._id);
+  }
+
+  async inspectPlayerMounts(username, options = {}) {
+    const target = await this.resolveTargetPlayer(username);
+    return mountService.getMyMounts(target._id, options);
+  }
+
+  async inspectPlayerCrops(username) {
+    const target = await this.resolveTargetPlayer(username);
+    return cropService.getMyCrops(target._id);
+  }
+
+  async inspectPlayerWaystones(username) {
+    const target = await this.resolveTargetPlayer(username);
+    return waystoneService.getMyWaystones(target._id);
   }
 
   async searchPlayerInventory(username, keyword, options = {}) {
-    const target = await playerRepo.findByUsername(username);
-    if (!target) {
-      throw AppError.notFound('PLAYER_NOT_FOUND');
+    const target = await this.resolveTargetPlayer(username);
+    return playerService.searchMyInventory({ username: target.username }, keyword, options);
+  }
+
+  // ======================== 2. VIEW ALL TOÀN SERVER ========================
+
+  async getAllPlayersOverview(query = {}) {
+    const result = await operatorRepo.findAllPlayersPaginated(query);
+    return {
+      items: result.items.map((item) => ({
+        ...item,
+        balance: formatCurrency(item.rawCoins),
+      })),
+      pagination: result.pagination,
+    };
+  }
+
+  async getAllWaystonesAdmin() {
+    const docs = await operatorRepo.findAllWaystonesUnfiltered();
+    const formatted = docs.map((ws) => waystoneService.formatWaystone(ws, 'OWNER'));
+
+    return {
+      total: formatted.length,
+      placedCount: formatted.filter((w) => w.isPlaced).length,
+      unplacedCount: formatted.filter((w) => !w.isPlaced).length,
+      expiredCount: formatted.filter((w) => w.taxStatus?.isExpired).length,
+      waystones: formatted,
+    };
+  }
+
+  async scanItemServerWide(keyword, options = {}) {
+    if (!keyword || String(keyword).trim() === '') {
+      throw AppError.badRequest('VALIDATION_ERROR');
     }
 
-    return playerService.searchMyInventory({ username: target.username }, keyword, options);
+    const players = await operatorRepo.findAllPlayerUsernamesForScan(200);
+    const matches = [];
+
+    for (const p of players) {
+      if (!p.username) continue;
+      const found = await playerService.searchMyInventory(
+        { username: p.username },
+        keyword,
+        options
+      );
+      if (found && found.totalMatched > 0) {
+        matches.push({
+          uuid: p._id,
+          username: p.username,
+          totalMatched: found.totalMatched,
+          totalQuantity: found.totalQuantity,
+          items: found.items,
+        });
+      }
+    }
+
+    return {
+      keyword: String(keyword).trim(),
+      matchedPlayersCount: matches.length,
+      matches,
+    };
   }
 
   async getAuditLogs({ targetUsername, status, limit } = {}) {
@@ -56,7 +134,7 @@ class OperatorService {
     return operatorRepo.findActions(filter, limit);
   }
 
-  // ======================== 2. QUYỀN GHI/XÓA CÓ GIỚI HẠN (WD) ========================
+  // ======================== 3. QUYỀN GHI/XÓA CÓ GIỚI HẠN (WD) ========================
 
   validateModeratorConstraints(policy, action, payload = {}) {
     const allowed = Array.isArray(policy.allowedActions) ? policy.allowedActions : [];
@@ -85,13 +163,17 @@ class OperatorService {
     }
 
     const normalizedAction = String(action).trim().toUpperCase();
-    const target = await playerRepo.findByUsername(targetUsername);
-    if (!target) {
-      throw AppError.notFound('PLAYER_NOT_FOUND');
-    }
+    const target = await this.resolveTargetPlayer(targetUsername);
 
     // Nếu là MODERATOR -> kiểm tra whitelist & ngưỡng giới hạn do ADMIN đề ra
     if (actor.role === 'MODERATOR') {
+      // Không cho phép MODERATOR thực thi lệnh lên ADMIN hoặc MODERATOR ngang cấp
+      const targetWeb = await operatorRepo.findWebAccountByUuid(target._id);
+      const targetRole = targetWeb?.role || 'USER';
+      if (targetRole === 'MODERATOR' || targetRole === 'ADMIN') {
+        throw AppError.forbidden('MOD_ACTION_NOT_ALLOWED');
+      }
+
       const policy = await operatorRepo.getModeratorPolicy();
       this.validateModeratorConstraints(policy, normalizedAction, payload);
     }
@@ -109,7 +191,7 @@ class OperatorService {
     });
   }
 
-  // ======================== 3. ĐẶC QUYỀN ADMIN (WRD FULL) ========================
+  // ======================== 4. ĐẶC QUYỀN ADMIN (WRD FULL) ========================
 
   async getModeratorPolicy() {
     return operatorRepo.getModeratorPolicy();
@@ -133,10 +215,7 @@ class OperatorService {
       throw AppError.badRequest('INVALID_ROLE');
     }
 
-    const target = await playerRepo.findByUsername(targetUsername);
-    if (!target) {
-      throw AppError.notFound('PLAYER_NOT_FOUND');
-    }
+    const target = await this.resolveTargetPlayer(targetUsername);
 
     if (target._id === adminUser.uuid) {
       throw AppError.badRequest('CANNOT_MODIFY_SELF_ROLE');

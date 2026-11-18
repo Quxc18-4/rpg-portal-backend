@@ -3,6 +3,37 @@ const ApiResponse = require('../utils/apiResponse.util');
 const { resolveLang } = require('../utils/language.util');
 
 class OperatorController {
+  // --- VIEW ALL ---
+  async getAllPlayers(req, res, next) {
+    try {
+      const data = await operatorService.getAllPlayersOverview(req.query);
+      return ApiResponse.success(res, data, 'OPERATOR_PLAYERS_LIST_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAllWaystones(req, res, next) {
+    try {
+      const data = await operatorService.getAllWaystonesAdmin();
+      return ApiResponse.success(res, data, 'OPERATOR_WAYSTONES_ALL_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async scanServerItems(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const lang = resolveLang(req);
+      const data = await operatorService.scanItemServerWide(req.query.q, { includeRaw, lang });
+      return ApiResponse.success(res, data, 'OPERATOR_GLOBAL_SEARCH_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // --- INSPECT TỪNG NGƯỜI CHƠI ---
   async inspectPlayer(req, res, next) {
     try {
       const includeRaw = req.query.raw === 'true';
@@ -11,6 +42,57 @@ class OperatorController {
         includeRaw,
         lang,
       });
+      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async inspectPlayerInventory(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const lang = resolveLang(req);
+      const data = await operatorService.inspectPlayerInventory(req.params.username, {
+        includeRaw,
+        lang,
+      });
+      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async inspectPlayerJobs(req, res, next) {
+    try {
+      const data = await operatorService.inspectPlayerJobs(req.params.username);
+      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async inspectPlayerMounts(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const data = await operatorService.inspectPlayerMounts(req.params.username, { includeRaw });
+      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async inspectPlayerCrops(req, res, next) {
+    try {
+      const data = await operatorService.inspectPlayerCrops(req.params.username);
+      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async inspectPlayerWaystones(req, res, next) {
+    try {
+      const data = await operatorService.inspectPlayerWaystones(req.params.username);
       return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
     } catch (error) {
       next(error);
@@ -32,6 +114,7 @@ class OperatorController {
     }
   }
 
+  // --- ACTIONS & ADMIN CONFIG ---
   async executeAction(req, res, next) {
     try {
       const data = await operatorService.executePlayerAction(req.user, {

@@ -214,6 +214,19 @@ const MESSAGES = {
     vi: 'Không thể tự thay đổi vai trò của chính mình',
     en: 'You cannot modify your own role',
   },
+  // Operator View All & Global Inspection
+  OPERATOR_PLAYERS_LIST_SUCCESS: {
+    vi: 'Lấy danh sách tài khoản người chơi thành công',
+    en: 'Players directory retrieved successfully',
+  },
+  OPERATOR_WAYSTONES_ALL_SUCCESS: {
+    vi: 'Lấy toàn bộ điểm dịch chuyển trên máy chủ thành công',
+    en: 'All server waystones retrieved successfully',
+  },
+  OPERATOR_GLOBAL_SEARCH_SUCCESS: {
+    vi: 'Quét vật phẩm toàn máy chủ hoàn tất',
+    en: 'Server-wide item scan completed',
+  },
 };
 
 const normalizeLang = (rawLang) => {
