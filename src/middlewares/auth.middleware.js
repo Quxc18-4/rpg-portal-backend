@@ -4,7 +4,7 @@ const ApiResponse = require('../utils/apiResponse.util');
 const requireAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return ApiResponse.error(res, 'Unauthorized', 401);
+    return ApiResponse.error(res, 'UNAUTHORIZED', 401);
   }
 
   try {
@@ -12,7 +12,8 @@ const requireAuth = (req, res, next) => {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
     next();
   } catch (error) {
-    return ApiResponse.error(res, 'Invalid or expired token', 401);
+    const messageKey = error.name === 'TokenExpiredError' ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN';
+    return ApiResponse.error(res, messageKey, 401);
   }
 };
 
