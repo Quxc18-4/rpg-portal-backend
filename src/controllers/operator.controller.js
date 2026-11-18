@@ -177,6 +177,33 @@ class OperatorController {
       next(error);
     }
   }
+  async getAllMounts(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const data = await operatorService.getAllMountsAdmin({ includeRaw });
+      return ApiResponse.success(res, data, 'OPERATOR_MOUNTS_ALL_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAllCrops(req, res, next) {
+    try {
+      const data = await operatorService.getAllCropsAdmin();
+      return ApiResponse.success(res, data, 'OPERATOR_CROPS_ALL_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAllJobs(req, res, next) {
+    try {
+      const data = await operatorService.getAllJobsAdmin();
+      return ApiResponse.success(res, data, 'OPERATOR_JOBS_ALL_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new OperatorController();

@@ -78,6 +78,39 @@ class OperatorRepository {
     return WebAccount.findOne({ uuid }).lean();
   }
 
+  async resolveCollectionName(candidates) {
+    const cols = await mongoose.connection.db.listCollections().toArray();
+    const existingNames = new Set(cols.map((c) => c.name));
+    for (const name of candidates) {
+      if (existingNames.has(name)) return name;
+    }
+    return candidates[0];
+  }
+
+  async buildUsernameMap(uuids) {
+    if (!Array.isArray(uuids) || uuids.length === 0) return new Map();
+
+    const [players, accounts] = await Promise.all([
+      mongoose.connection.db
+        .collection('players')
+        .find({ _id: { $in: uuids } }, { projection: { _id: 1, username: 1 } })
+        .toArray(),
+      mongoose.connection.db
+        .collection('player_accounts')
+        .find({ _id: { $in: uuids } }, { projection: { _id: 1, playerName: 1 } })
+        .toArray(),
+    ]);
+
+    const map = new Map();
+    for (const acc of accounts) {
+      if (acc.playerName) map.set(acc._id, acc.playerName);
+    }
+    for (const p of players) {
+      if (p.username) map.set(p._id, p.username);
+    }
+    return map;
+  }
+
   // ======================== VIEW ALL QUERIES (ADMIN / MOD) ========================
 
   async findAllPlayersPaginated({ search = '', sortBy = 'level', order = 'desc', page = 1, limit = 20 }) {
@@ -156,6 +189,27 @@ class OperatorRepository {
       .find({})
       .sort({ owner_name: 1 })
       .toArray();
+  }
+
+  async findAllMountOwnerUuids() {
+    const docs = await mongoose.connection.db
+      .collection('player_mounts')
+      .find({}, { projection: { _id: 1 } })
+      .toArray();
+    return docs.map((d) => d._id);
+  }
+
+  async findAllCropDocs() {
+    const colName = await this.resolveCollectionName(['player_crops', 'crops', 'Crop']);
+    return mongoose.connection.db.collection(colName).find({}).toArray();
+  }
+
+  async findAllJobOwnerUuids() {
+    const docs = await mongoose.connection.db
+      .collection('player_jobs')
+      .find({}, { projection: { _id: 1 } })
+      .toArray();
+    return docs.map((d) => d._id);
   }
 
   async findAllPlayerUsernamesForScan(limit = 200) {

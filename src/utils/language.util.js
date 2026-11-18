@@ -227,6 +227,18 @@ const MESSAGES = {
     vi: 'Quét vật phẩm toàn máy chủ hoàn tất',
     en: 'Server-wide item scan completed',
   },
+  OPERATOR_MOUNTS_ALL_SUCCESS: {
+    vi: 'Lấy toàn bộ dữ liệu thú cưỡi trên máy chủ thành công',
+    en: 'All server mounts retrieved successfully',
+  },
+  OPERATOR_CROPS_ALL_SUCCESS: {
+    vi: 'Lấy toàn bộ dữ liệu cây trồng trên máy chủ thành công',
+    en: 'All server crops retrieved successfully',
+  },
+  OPERATOR_JOBS_ALL_SUCCESS: {
+    vi: 'Lấy toàn bộ dữ liệu nghề phụ trên máy chủ thành công',
+    en: 'All server jobs retrieved successfully',
+  },
 };
 
 const normalizeLang = (rawLang) => {

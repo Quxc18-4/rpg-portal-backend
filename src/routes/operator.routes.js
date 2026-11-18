@@ -8,6 +8,9 @@ router.use(requireAuth, requireMinRole('MODERATOR'));
 // 1. View All toàn server (MODERATOR + ADMIN)
 router.get('/players', operatorController.getAllPlayers);
 router.get('/waystones', operatorController.getAllWaystones);
+router.get('/mounts', operatorController.getAllMounts);
+router.get('/crops', operatorController.getAllCrops);
+router.get('/jobs', operatorController.getAllJobs);
 router.get('/items/scan', operatorController.scanServerItems);
 router.get('/logs', operatorController.getAuditLogs);
 
