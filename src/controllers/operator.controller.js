@@ -255,12 +255,17 @@ class OperatorController {
       next(error);
     }
   }
-  
+
   async getAllLicenses(req, res, next) {
     try {
-      const data = await licenseService.getAllLicenses({
+      const { status, q, page, limit } = req.query;
+      const data = await licenseService.getLicenses({
         viewerUuid: null,
         includeFullContributors: true,
+        status,
+        q,
+        page,
+        limit,
       });
       return ApiResponse.success(res, data, 'MARKET_LICENSES_SUCCESS');
     } catch (error) {
