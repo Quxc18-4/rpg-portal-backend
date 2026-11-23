@@ -13,6 +13,8 @@ router.get('/crops', operatorController.getAllCrops);
 router.get('/jobs', operatorController.getAllJobs);
 router.get('/items/scan', operatorController.scanServerItems);
 router.get('/logs', operatorController.getAuditLogs);
+router.get('/licenses', operatorController.getAllLicenses);
+
 // Trong nhóm 1. View All toàn server (MODERATOR + ADMIN):
 router.get('/safezones', operatorController.getAllSafezones);
 router.get('/dens', operatorController.getAllDens);

@@ -31,6 +31,7 @@ router.use('/auth', require('./auth.routes'));
 router.use('/players', require('./player.routes'));
 router.use('/market', require('./economy.routes'));
 router.use('/world', require('./zone.routes'));
+router.use('/market', require('./market.routes'));
 router.use('/operator', require('./operator.routes'));
 
 module.exports = router;

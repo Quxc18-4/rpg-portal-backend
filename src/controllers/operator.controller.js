@@ -3,6 +3,7 @@ const safezoneService = require('../services/safezone.service');
 const denService = require('../services/den.service');
 const ecosystemService = require('../services/ecosystem.service');
 const rewardService = require('../services/reward.service');
+const licenseService = require('../services/license.service');
 const ApiResponse = require('../utils/apiResponse.util');
 const { resolveLang } = require('../utils/language.util');
 
@@ -250,6 +251,18 @@ class OperatorController {
       const includeRaw = req.query.raw === 'true';
       const data = await rewardService.getPlayerRewards(target._id, { includeRaw });
       return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  async getAllLicenses(req, res, next) {
+    try {
+      const data = await licenseService.getAllLicenses({
+        viewerUuid: null,
+        includeFullContributors: true,
+      });
+      return ApiResponse.success(res, data, 'MARKET_LICENSES_SUCCESS');
     } catch (error) {
       next(error);
     }
