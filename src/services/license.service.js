@@ -2,6 +2,7 @@ const licenseRepo = require('../repositories/license.repository');
 const operatorRepo = require('../repositories/operator.repository');
 const safezoneService = require('./safezone.service');
 
+const BETTING_LOCK_THRESHOLD = 80;
 const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 class LicenseService {
@@ -12,7 +13,6 @@ class LicenseService {
       const completed = Number(rawEntry.completed ?? 0);
       return { current, target, completed };
     }
-    // Tương thích ngược nếu document chưa được plugin lưu lại theo format mới
     return {
       current: Number(rawEntry || 0),
       target: baseTarget,
@@ -88,7 +88,20 @@ class LicenseService {
             completedCount: completed,
           };
         })
-        .sort((a, b) => b.completedCount - a.completedCount || b.currentAmount - a.currentAmount);
+        .sort((a, b) => b.progressPercent - a.progressPercent || b.currentAmount - a.currentAmount);
+
+      const activeRacers = contributorList.filter((c) => c.currentAmount > 0);
+      const leaderProgressPercent =
+        activeRacers.length > 0 ? activeRacers[0].progressPercent : 0;
+
+      // Kèo Hot: có người đạt >= 50% hoặc có từ 2 người trở lên đang cùng đua
+      const isHotRace =
+        activeRacers.length > 0 &&
+        (leaderProgressPercent >= 50 || activeRacers.length >= 2);
+
+      // Chỉ mở cược khi có ít nhất 1 ứng viên đang góp và người dẫn đầu chưa chạm 80%
+      const isBettingOpen =
+        activeRacers.length > 0 && leaderProgressPercent < BETTING_LOCK_THRESHOLD;
 
       let myProgress = null;
       if (viewerUuid) {
@@ -117,6 +130,13 @@ class LicenseService {
         baseTargetAmount,
         totalActiveDeposited,
         isBound: false,
+        raceStatus: {
+          isHotRace,
+          isBettingOpen,
+          lockThresholdPercent: BETTING_LOCK_THRESHOLD,
+          leaderProgressPercent,
+          activeRacersCount: activeRacers.length,
+        },
         contributorsCount: contributorList.length,
         topInvestors: contributorList
           .slice(0, 5)

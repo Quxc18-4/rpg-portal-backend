@@ -14,6 +14,8 @@ router.get('/jobs', operatorController.getAllJobs);
 router.get('/items/scan', operatorController.scanServerItems);
 router.get('/logs', operatorController.getAuditLogs);
 router.get('/licenses', operatorController.getAllLicenses);
+router.get('/licenses/bets', operatorController.getAllLicenseBets);
+router.post('/licenses/bets/settle', operatorController.triggerLicenseBetSettlement);
 
 // Trong nhóm 1. View All toàn server (MODERATOR + ADMIN):
 router.get('/safezones', operatorController.getAllSafezones);

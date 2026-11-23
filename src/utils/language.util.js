@@ -268,6 +268,30 @@ const MESSAGES = {
     vi: 'Lấy trạng thái máy chủ thành công',
     en: 'Minecraft server status retrieved successfully',
   },
+  BET_PLACE_SUCCESS: {
+    vi: 'Đã gửi lệnh đặt cược, hệ thống đang xác nhận trừ tiền trong ngân hàng',
+    en: 'Bet submitted, pending bank balance deduction',
+  },
+  BET_LIST_SUCCESS: {
+    vi: 'Lấy danh sách phiếu cược thành công',
+    en: 'Betting history retrieved successfully',
+  },
+  BET_LOCKED_THRESHOLD: {
+    vi: 'Kèo cược đã khóa do người dẫn đầu đã đạt từ 80% tiến độ trở lên',
+    en: 'Betting is locked because the leader has reached 80% progress or higher',
+  },
+  BET_NO_ACTIVE_RACERS: {
+    vi: 'Mặt hàng này hiện chưa có nhà đầu tư nào tham gia để đặt cược',
+    en: 'No active investors on this item to place a bet on',
+  },
+  BET_INVALID_CANDIDATE: {
+    vi: 'Ứng viên bạn chọn chưa tham gia đầu tư mặt hàng này',
+    en: 'Selected candidate has not invested in this item yet',
+  },
+  BET_INVALID_AMOUNT: {
+    vi: 'Số tiền cược phải lớn hơn mức tối thiểu quy định',
+    en: 'Bet amount must be greater than the minimum stake',
+  },
 };
 
 const normalizeLang = (rawLang) => {

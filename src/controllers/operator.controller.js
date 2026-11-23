@@ -4,6 +4,7 @@ const denService = require('../services/den.service');
 const ecosystemService = require('../services/ecosystem.service');
 const rewardService = require('../services/reward.service');
 const licenseService = require('../services/license.service');
+const licenseBetService = require('../services/licenseBet.service');
 const ApiResponse = require('../utils/apiResponse.util');
 const { resolveLang } = require('../utils/language.util');
 
@@ -268,6 +269,25 @@ class OperatorController {
         limit,
       });
       return ApiResponse.success(res, data, 'MARKET_LICENSES_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+  // Thêm vào trong class OperatorController:
+  async getAllLicenseBets(req, res, next) {
+    try {
+      const { status, itemId, page, limit } = req.query;
+      const data = await licenseBetService.getAllBetsAdmin({ status, itemId, page, limit });
+      return ApiResponse.success(res, data, 'BET_LIST_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async triggerLicenseBetSettlement(req, res, next) {
+    try {
+      const data = await licenseBetService.processPendingSettlements();
+      return ApiResponse.success(res, data, 'OPERATOR_ACTION_SUCCESS');
     } catch (error) {
       next(error);
     }
