@@ -19,6 +19,11 @@ const createHttpError = (statusCode, messageKey, lang = 'vi') => {
   return err;
 };
 
+const formatCurrencyText = (amount) => {
+  const res = formatCurrency(amount);
+  return typeof res === 'string' ? res : res?.formatted || `${amount} Đồng`;
+};
+
 class LicenseBetService {
   constructor() {
     this.workerTimer = null;
@@ -36,6 +41,12 @@ class LicenseBetService {
 
     if (!candidateUuid || typeof candidateUuid !== 'string') {
       throw createHttpError(400, 'BET_INVALID_CANDIDATE', lang);
+    }
+
+    // Chặn spam tạo nhiều phiếu khi giao dịch trước chưa được server MC trừ tiền xong
+    const hasPending = await licenseBetRepo.hasPendingDebitBet(bettorUuid);
+    if (hasPending) {
+        throw createHttpError(429, 'BET_PENDING_IN_PROGRESS', lang);
     }
 
     // 1. Kiểm tra mặt hàng có đang chờ chốt kèo vừa hoàn thành không
@@ -86,7 +97,7 @@ class LicenseBetService {
     const usernameMap = await operatorRepo.buildUsernameMap([bettorUuid, candidateUuid]);
     const resolvedBettorName = usernameMap.get(bettorUuid) || bettorUsername || 'Unknown';
     const resolvedCandidateName = usernameMap.get(candidateUuid) || 'Unknown';
-    const displayName = safezoneService.formatMinecraftName(itemId);
+    const displayName = doc.display_name || safezoneService.formatMinecraftName(itemId);
 
     // 5. Tạo phiếu cược PENDING_DEBIT + đẩy lệnh trừ tiền LICENSE_BET_DEBIT sang plugin
     const createdBet = await licenseBetRepo.createBetWithDebitAction(
@@ -180,7 +191,7 @@ class LicenseBetService {
 
     return {
       itemId,
-      displayName: safezoneService.formatMinecraftName(itemId),
+      displayName: doc.display_name || safezoneService.formatMinecraftName(itemId),
       isBettingOpen,
       lockThresholdPercent: BETTING_LOCK_THRESHOLD,
       leaderProgressPercent,
@@ -242,7 +253,8 @@ class LicenseBetService {
     const winnerUuid = history.winner_uuid;
     const winnerName = history.winner_name || 'Unknown';
     const completedAtDate = history.completed_at ? new Date(Number(history.completed_at)) : new Date();
-    const displayName = safezoneService.formatMinecraftName(itemId);
+    const licenseDoc = await licenseRepo.findByItemId(itemId);
+    const displayName = licenseDoc?.display_name || safezoneService.formatMinecraftName(itemId);
 
     const allConfirmed = await licenseBetRepo.findConfirmedBetsByItem(itemId);
     // Chỉ chốt những phiếu đã đặt trước hoặc đúng thời điểm người chơi về nhất
@@ -261,8 +273,10 @@ class LicenseBetService {
 
     const payoutActions = [];
 
-    // Trường hợp A: Không ai đặt cược trúng người về nhất -> Hoàn 100% tiền cược
+    // Trường hợp A: Không ai đặt cược trúng người về nhất -> Hoàn 100% tiền cược (gom theo người đặt)
     if (winningBets.length === 0) {
+      const refundByBettor = new Map();
+
       for (const bet of eligibleBets) {
         const refund = Number(bet.amount || 0);
         await licenseBetRepo.markBetSettled(bet._id, {
@@ -272,22 +286,40 @@ class LicenseBetService {
           winnerName,
         });
 
+        const existing = refundByBettor.get(bet.bettorUuid);
+        if (existing) {
+          existing.amount += refund;
+          existing.ticketCount += 1;
+        } else {
+          refundByBettor.set(bet.bettorUuid, {
+            betId: String(bet._id),
+            targetUuid: bet.bettorUuid,
+            targetUsername: bet.bettorUsername,
+            amount: refund,
+            ticketCount: 1,
+          });
+        }
+      }
+
+      for (const entry of refundByBettor.values()) {
+        const ticketNote = entry.ticketCount > 1 ? ` (${entry.ticketCount} phiếu)` : '';
         payoutActions.push({
-          betId: String(bet._id),
-          targetUuid: bet.bettorUuid,
-          targetUsername: bet.bettorUsername,
-          amount: refund,
+          betId: entry.betId,
+          targetUuid: entry.targetUuid,
+          targetUsername: entry.targetUsername,
+          amount: entry.amount,
           itemId,
-          reason: `Hoàn cược kèo ${itemId} (không có người đoán trúng ${winnerName})`,
-          message: `§e[Dự Đoán] §fKhông ai đoán trúng §b${winnerName} §fở kèo §a${displayName}§f. Hoàn 100% cược: §e${formatCurrency(refund)}§f!`,
+          reason: `Hoàn cược kèo ${itemId}${ticketNote} (không có người đoán trúng ${winnerName})`,
+          message: `§e[Dự Đoán] §fKhông ai đoán trúng §b${winnerName} §fở kèo §a${displayName}§f. Hoàn 100% cược: §e${formatCurrencyText(entry.amount)}§f${ticketNote}!`,
         });
       }
     }
-    // Trường hợp B: Có người đoán trúng -> Chia quỹ Parimutuel (vốn + 95% tổng quỹ cửa thua)
+    // Trường hợp B: Có người đoán trúng -> Chia quỹ Parimutuel (gom tổng thưởng theo người đặt)
     else {
       const totalWinStake = winningBets.reduce((sum, b) => sum + Number(b.amount || 0), 0);
       const totalLoseStake = losingBets.reduce((sum, b) => sum + Number(b.amount || 0), 0);
       const distributableLosePool = Math.floor(totalLoseStake * (1 - HOUSE_TAX_RATE));
+      const payoutByBettor = new Map();
 
       for (const bet of winningBets) {
         const stake = Number(bet.amount || 0);
@@ -302,14 +334,31 @@ class LicenseBetService {
           winnerName,
         });
 
+        const existing = payoutByBettor.get(bet.bettorUuid);
+        if (existing) {
+          existing.amount += payout;
+          existing.ticketCount += 1;
+        } else {
+          payoutByBettor.set(bet.bettorUuid, {
+            betId: String(bet._id),
+            targetUuid: bet.bettorUuid,
+            targetUsername: bet.bettorUsername,
+            amount: payout,
+            ticketCount: 1,
+          });
+        }
+      }
+
+      for (const entry of payoutByBettor.values()) {
+        const ticketNote = entry.ticketCount > 1 ? ` (${entry.ticketCount} phiếu)` : '';
         payoutActions.push({
-          betId: String(bet._id),
-          targetUuid: bet.bettorUuid,
-          targetUsername: bet.bettorUsername,
-          amount: payout,
+          betId: entry.betId,
+          targetUuid: entry.targetUuid,
+          targetUsername: entry.targetUsername,
+          amount: entry.amount,
           itemId,
-          reason: `Trả thưởng thắng cược ${itemId} (Winner: ${winnerName})`,
-          message: `§a§l[Thắng Cược] §fChúc mừng! §b${winnerName} §fđã về nhất kèo §e${displayName}§f. Bạn nhận được §6${formatCurrency(payout)}§f!`,
+          reason: `Trả thưởng thắng cược ${itemId}${ticketNote} (Winner: ${winnerName})`,
+          message: `§a§l[Thắng Cược] §fChúc mừng! §b${winnerName} §fđã về nhất kèo §e${displayName}§f. Bạn nhận được §6${formatCurrencyText(entry.amount)}§f${ticketNote}!`,
         });
       }
 

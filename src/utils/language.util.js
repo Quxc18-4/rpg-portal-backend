@@ -292,6 +292,10 @@ const MESSAGES = {
     vi: 'Số tiền cược phải lớn hơn mức tối thiểu quy định',
     en: 'Bet amount must be greater than the minimum stake',
   },
+  BET_PENDING_IN_PROGRESS: {
+    vi: 'Giao dịch đặt cược trước đó đang chờ ngân hàng xác nhận, vui lòng đợi vài giây',
+    en: 'Your previous bet is awaiting bank confirmation, please wait a few seconds',
+  },
 };
 
 const normalizeLang = (rawLang) => {

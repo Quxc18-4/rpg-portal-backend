@@ -6,16 +6,15 @@ const BETTING_LOCK_THRESHOLD = 80;
 const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 class LicenseService {
-  parsePlayerProgress(rawEntry, baseTarget) {
+  parsePlayerProgress(rawEntry, globalTarget) {
     if (rawEntry && typeof rawEntry === 'object') {
       const current = Number(rawEntry.current ?? 0);
-      const target = Number(rawEntry.target ?? baseTarget);
       const completed = Number(rawEntry.completed ?? 0);
-      return { current, target, completed };
+      return { current, target: globalTarget, completed };
     }
     return {
       current: Number(rawEntry || 0),
-      target: baseTarget,
+      target: globalTarget,
       completed: 0,
     };
   }
@@ -33,25 +32,33 @@ class LicenseService {
     const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
     const effectiveStatus = status || (viewerUuid || includeFullContributors ? 'all' : 'active');
 
-    const filter = {};
+    const andConditions = [];
+
     if (effectiveStatus === 'active') {
-      filter.current_amount = { $gt: 0 };
+      andConditions.push({ current_amount: { $gt: 0 } });
     } else if (effectiveStatus === 'empty') {
-      filter.current_amount = { $lte: 0 };
+      andConditions.push({ current_amount: { $lte: 0 } });
     }
 
     if (onlyMine && viewerUuid) {
-      filter.$or = [
-        { [`contributors.${viewerUuid}.current`]: { $gt: 0 } },
-        { [`contributors.${viewerUuid}.completed`]: { $gt: 0 } },
-        { [`contributors.${viewerUuid}`]: { $gt: 0 } },
-      ];
+      andConditions.push({
+        $or: [
+          { [`contributors.${viewerUuid}.current`]: { $gt: 0 } },
+          { [`contributors.${viewerUuid}.completed`]: { $gt: 0 } },
+          { [`contributors.${viewerUuid}`]: { $gt: 0 } },
+        ],
+      });
     }
 
     const cleanKeyword = String(q || '').trim();
     if (cleanKeyword) {
-      filter.item_id = { $regex: escapeRegex(cleanKeyword), $options: 'i' };
+      const regex = { $regex: escapeRegex(cleanKeyword), $options: 'i' };
+      andConditions.push({
+        $or: [{ item_id: regex }, { display_name: regex }],
+      });
     }
+
+    const filter = andConditions.length > 0 ? { $and: andConditions } : {};
 
     const { items: docs, totalItems, summary } = await licenseRepo.findPaginated({
       filter,
@@ -69,13 +76,16 @@ class LicenseService {
 
     const licenses = docs.map((doc) => {
       const totalActiveDeposited = Number(doc.current_amount ?? 0);
-      const baseTargetAmount = Number(doc.target_amount ?? 1000);
+      const currentTargetAmount = Number(doc.target_amount ?? 1000);
       const contributorsObj =
         doc.contributors && typeof doc.contributors === 'object' ? doc.contributors : {};
 
       const contributorList = Object.entries(contributorsObj)
         .map(([uuid, rawEntry]) => {
-          const { current, target, completed } = this.parsePlayerProgress(rawEntry, baseTargetAmount);
+          const { current, target, completed } = this.parsePlayerProgress(
+            rawEntry,
+            currentTargetAmount
+          );
           const progressPercent =
             target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 100;
 
@@ -99,7 +109,6 @@ class LicenseService {
         activeRacers.length > 0 &&
         (leaderProgressPercent >= 50 || activeRacers.length >= 2);
 
-      // Chỉ mở cược khi có ít nhất 1 ứng viên đang góp và người dẫn đầu chưa chạm 80%
       const isBettingOpen =
         activeRacers.length > 0 && leaderProgressPercent < BETTING_LOCK_THRESHOLD;
 
@@ -107,7 +116,7 @@ class LicenseService {
       if (viewerUuid) {
         const { current, target, completed } = this.parsePlayerProgress(
           contributorsObj[viewerUuid],
-          baseTargetAmount
+          currentTargetAmount
         );
         const progressPercent =
           target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 100;
@@ -126,8 +135,8 @@ class LicenseService {
       const formatted = {
         id: String(doc._id),
         itemId: doc.item_id,
-        displayName: safezoneService.formatMinecraftName(doc.item_id),
-        baseTargetAmount,
+        displayName: doc.display_name || safezoneService.formatMinecraftName(doc.item_id),
+        currentTargetAmount,
         totalActiveDeposited,
         isBound: false,
         raceStatus: {

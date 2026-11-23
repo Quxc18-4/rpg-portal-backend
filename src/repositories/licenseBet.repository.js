@@ -168,6 +168,14 @@ class LicenseBetRepository {
     ]);
     return { items, totalItems };
   }
+
+  async hasPendingDebitBet(bettorUuid) {
+    const count = await this.getBetsCollection().countDocuments({
+      bettorUuid,
+      status: 'PENDING_DEBIT',
+    });
+    return count > 0;
+  }
 }
 
 module.exports = new LicenseBetRepository();
