@@ -26,12 +26,12 @@ router.get('/health', async (req, res, next) => {
   }
 });
 
-router.use('/auth', require('./auth.routes'));
+router.use('/auth', require('../modules/auth/auth.routes'));
 
-router.use('/players', require('./player.routes'));
-router.use('/market', require('./economy.routes'));
-router.use('/world', require('./zone.routes'));
-router.use('/market', require('./market.routes'));
-router.use('/operator', require('./operator.routes'));
+router.use('/players', require('../modules/player/player.routes'));
+router.use('/market', require('../modules/market/economy.routes'));
+router.use('/world', require('../modules/world/zone.routes'));
+router.use('/market', require('../modules/market/market.routes'));
+router.use('/operator', require('../modules/operator/operator.routes'));
 
 module.exports = router;

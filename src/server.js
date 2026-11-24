@@ -1,8 +1,8 @@
 require('dotenv').config();
 const app = require('./app');
 const connectDB = require('./config/db');
-const licenseBetRepo = require('./repositories/licenseBet.repository');
-const licenseBetService = require('./services/licenseBet.service');
+const licenseBetRepo = require('./modules/market/licenseBet.repository');
+const licenseBetService = require('./modules/market/licenseBet.service');
 
 const PORT = process.env.PORT || 5000;
 
