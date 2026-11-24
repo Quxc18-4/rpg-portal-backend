@@ -27,11 +27,12 @@ router.get('/health', async (req, res, next) => {
 });
 
 router.use('/auth', require('../modules/auth/auth.routes'));
-
 router.use('/players', require('../modules/player/player.routes'));
 router.use('/market', require('../modules/market/economy.routes'));
 router.use('/world', require('../modules/world/zone.routes'));
 router.use('/market', require('../modules/market/market.routes'));
 router.use('/operator', require('../modules/operator/operator.routes'));
+router.use('/shop', require('../modules/shop/shop.routes'));
+router.use('/vip', require('../modules/shop/shop.routes')); // Alias tương thích /api/v1/vip/purchase-gold
 
 module.exports = router;

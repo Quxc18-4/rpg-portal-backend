@@ -44,9 +44,11 @@ class OperatorController {
     try {
       const includeRaw = req.query.raw === 'true';
       const lang = resolveLang(req);
+      const slot = req.query.slot !== undefined ? Number(req.query.slot) : null;
       const data = await operatorService.inspectPlayerOverview(req.params.username, {
         includeRaw,
         lang,
+        slot,
       });
       return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
     } catch (error) {
@@ -58,9 +60,11 @@ class OperatorController {
     try {
       const includeRaw = req.query.raw === 'true';
       const lang = resolveLang(req);
+      const slot = req.query.slot !== undefined ? Number(req.query.slot) : null;
       const data = await operatorService.inspectPlayerInventory(req.params.username, {
         includeRaw,
         lang,
+        slot,
       });
       return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
     } catch (error) {

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const playerRepo = require('./player.repository');
+const PlayerAccount = require('../../models/PlayerAccount.model');
 const { formatCurrency } = require('../../utils/currency.util');
 const { decodeItemStackBase64, decodeTrinketsMap } = require('../../utils/itemDecoder.util');
 const { AppError } = require('../../utils/error.util');
@@ -16,59 +17,158 @@ class PlayerService {
     return 'PUBLIC';
   }
 
+  /**
+   * Trích xuất dữ liệu của 1 Slot cụ thể (tương thích ngược với cấu trúc phẳng cũ)
+   */
+  extractSlotData(playerDoc, requestedSlot = null, maxSlots = 10) {
+    const hasSlotsMap =
+      playerDoc.slots &&
+      typeof playerDoc.slots === 'object' &&
+      Object.keys(playerDoc.slots).length > 0;
+
+    const activeSlot = Math.max(1, Number(playerDoc.active_slot || 1));
+
+    if (!hasSlotsMap) {
+      if (requestedSlot && Number(requestedSlot) !== 1) {
+        throw AppError.badRequest('INVALID_CHARACTER_SLOT');
+      }
+      return {
+        activeSlot: 1,
+        selectedSlot: 1,
+        slotData: playerDoc,
+      };
+    }
+
+    const targetSlot = requestedSlot !== null && requestedSlot !== undefined
+      ? Number(requestedSlot)
+      : activeSlot;
+
+    if (!Number.isInteger(targetSlot) || targetSlot < 1 || targetSlot > maxSlots) {
+      throw AppError.badRequest('INVALID_CHARACTER_SLOT');
+    }
+
+    const slotData = playerDoc.slots[String(targetSlot)] || {
+      class: 'commoner',
+      level: 1,
+      resource: 100,
+      exp: 0,
+      balance: 0,
+      attributes: { unspent: 0, STR: 0, INT: 0, VIT: 0, AGI: 0, LUK: 0 },
+      elements: [],
+      trinkets: {},
+      skills_data: {},
+      vanilla_inventory: '',
+      ender_chest: '',
+    };
+
+    return {
+      activeSlot,
+      selectedSlot: targetSlot,
+      slotData,
+    };
+  }
+
+  buildSlotsSummary(playerDoc, maxSlots) {
+    const activeSlot = Math.max(1, Number(playerDoc.active_slot || 1));
+    const slotsObj =
+      playerDoc.slots && typeof playerDoc.slots === 'object' ? playerDoc.slots : null;
+
+    const summary = [];
+    for (let slotNum = 1; slotNum <= maxSlots; slotNum++) {
+      let data = null;
+      if (slotsObj) {
+        data = slotsObj[String(slotNum)] || null;
+      } else if (slotNum === 1) {
+        data = playerDoc;
+      }
+
+      const isCreated = Boolean(data && Object.keys(data).length > 0);
+      summary.push({
+        slot: slotNum,
+        isActive: slotNum === activeSlot,
+        isCreated,
+        class: isCreated ? data.class || 'commoner' : null,
+        level: isCreated ? Number(data.level || 1) : 0,
+        currency: isCreated ? formatCurrency(data.balance || 0) : formatCurrency(0),
+      });
+    }
+    return summary;
+  }
+
   async getLeaderboard() {
     const players = await playerRepo.getTopLevel(10);
-    // Bảng xếp hạng công khai chỉ hiển thị cấp độ, không lộ số dư chi tiết
     return players.map((p) => ({
       uuid: p._id,
       username: p.username,
-      class: p.class,
-      level: p.level,
-      exp: p.exp,
+      activeSlot: p.activeSlot || 1,
+      class: p.class || 'commoner',
+      level: p.level || 1,
+      exp: p.exp || 0,
     }));
   }
 
-  async getProfile(username, viewerUser = null) {
+  async getProfile(username, viewerUser = null, requestedSlot = null) {
     const player = await playerRepo.findByUsername(username);
     if (!player) {
       throw new AppError('PLAYER_NOT_FOUND', 404);
     }
 
     const accessLevel = this.resolveAccessLevel(player, viewerUser);
+    const account = await PlayerAccount.findById(player._id).lean();
+    const vipState = PlayerAccount.resolveAccountVipState(account);
 
-    // 1. Dữ liệu Public tối thiểu (Ai cũng xem được)
+    // Người ngoài & Bạn bè chỉ xem được slot đang chơi; chính chủ được chọn ?slot=N
+    const effectiveRequestedSlot = accessLevel === 'OWNER' ? requestedSlot : null;
+    const { activeSlot, selectedSlot, slotData } = this.extractSlotData(
+      player,
+      effectiveRequestedSlot,
+      vipState.maxSlots
+    );
+
+    // 1. Dữ liệu Public tối thiểu
     const profile = {
       accessLevel,
       uuid: player._id,
       username: player.username,
-      class: player.class,
-      level: player.level,
+      isVip: vipState.isVip,
+      activeSlot,
+      selectedSlot,
+      class: slotData.class || 'commoner',
+      level: Number(slotData.level || 1),
     };
 
     // 2. Mở khóa cho Bạn bè hoặc Chính chủ
     if (accessLevel === 'FRIEND' || accessLevel === 'OWNER') {
-      profile.resource = player.resource;
-      profile.exp = player.exp;
-      profile.elements = player.elements;
-      profile.attributes = player.attributes;
-      profile.skills_data = player.skills_data;
+      profile.resource = slotData.resource ?? 100;
+      profile.exp = slotData.exp ?? 0;
+      profile.elements = slotData.elements || [];
+      profile.attributes = slotData.attributes || {
+        unspent: 0,
+        STR: 0,
+        INT: 0,
+        VIT: 0,
+        AGI: 0,
+        LUK: 0,
+      };
+      profile.skills_data = slotData.skills_data || {};
     }
 
-    // 3. Mở khóa độc quyền cho Chính chủ (Bearer JWT khớp UUID)
+    // 3. Mở khóa độc quyền cho Chính chủ
     if (accessLevel === 'OWNER') {
-      profile.currency = formatCurrency(player.balance);
+      profile.vipExpiresAt = vipState.vipExpiresAt;
+      profile.maxSlots = vipState.maxSlots;
+      profile.hasUnlockedVipSlot = vipState.hasUnlockedVipSlot;
+      profile.currency = formatCurrency(slotData.balance || 0);
+      profile.slotsSummary = this.buildSlotsSummary(player, vipState.maxSlots);
     }
 
     return profile;
   }
 
-  async getMyProfile(viewerUser) {
-    return this.getProfile(viewerUser.username, viewerUser);
+  async getMyProfile(viewerUser, requestedSlot = null) {
+    return this.getProfile(viewerUser.username, viewerUser, requestedSlot);
   }
 
-  /**
-   * Giải mã danh sách backpacks từ các item có tag `bag_uuid` (hỗ trợ đệ quy túi lồng túi)
-   */
   async resolveBackpacks(items, options = {}, visitedUuids = new Set(), parentLocation = null) {
     const lang = options.lang || DEFAULT_LANG;
     const resolvedParent = parentLocation || t('INVENTORY_MAIN', lang);
@@ -95,7 +195,6 @@ class PlayerService {
       const bagUuid = bagItem.tags.bag_uuid;
       const doc = bagMap.get(bagUuid);
 
-      // Ưu tiên trường items_base64 chuẩn, fallback tự dò chuỗi Base64
       const base64Field =
         doc?.items_base64 ||
         (doc
@@ -115,7 +214,6 @@ class PlayerService {
         items: decodedItems,
       });
 
-      // Quét đệ quy nếu bên trong túi này có chứa thêm túi khác
       const nestedBags = await this.resolveBackpacks(
         decodedItems,
         options,
@@ -130,16 +228,25 @@ class PlayerService {
 
   async getMyInventory(viewerUser, options = {}) {
     const lang = options.lang || DEFAULT_LANG;
+    const requestedSlot = options.slot !== undefined && options.slot !== null ? Number(options.slot) : null;
+
     const player = await playerRepo.findByUsername(viewerUser.username);
     if (!player) {
       throw new AppError('PLAYER_NOT_FOUND', 404);
     }
 
-    const vanillaInventory = decodeItemStackBase64(player.vanilla_inventory, options);
-    const enderChest = decodeItemStackBase64(player.ender_chest, options);
-    const trinkets = decodeTrinketsMap(player.trinkets, options);
+    const account = await PlayerAccount.findById(player._id).lean();
+    const vipState = PlayerAccount.resolveAccountVipState(account);
+    const { activeSlot, selectedSlot, slotData } = this.extractSlotData(
+      player,
+      requestedSlot,
+      vipState.maxSlots
+    );
 
-    // Giải mã tất cả túi phụ từ cả túi chính lẫn rương Ender
+    const vanillaInventory = decodeItemStackBase64(slotData.vanilla_inventory, options);
+    const enderChest = decodeItemStackBase64(slotData.ender_chest, options);
+    const trinkets = decodeTrinketsMap(slotData.trinkets, options);
+
     const visitedUuids = new Set();
     const vanillaBags = await this.resolveBackpacks(
       vanillaInventory,
@@ -155,13 +262,14 @@ class PlayerService {
     );
     const backpacks = [...vanillaBags, ...enderBags];
 
-    // Trích xuất thông tin Thẻ Mạo Hiểm Giả nếu có trong túi
     const adventurerCard =
       vanillaInventory.find((item) => item.tags?.card_rank)?.tags || null;
 
     return {
       uuid: player._id,
       username: player.username,
+      activeSlot,
+      selectedSlot,
       adventurerCard,
       summary: {
         vanillaCount: vanillaInventory.length,
@@ -176,9 +284,6 @@ class PlayerService {
     };
   }
 
-  /**
-   * Tìm kiếm vật phẩm xuyên suốt: Túi chính, Giáp, Trang sức, Ender Chest & Tất cả Backpacks
-   */
   async searchMyInventory(viewerUser, keyword, options = {}) {
     const lang = options.lang || DEFAULT_LANG;
     const query = String(keyword || '').trim().toLowerCase();
@@ -207,6 +312,7 @@ class PlayerService {
     for (const item of inventory.vanillaInventory) {
       if (isMatch(item)) {
         results.push({
+          characterSlot: inventory.selectedSlot,
           containerType: 'VANILLA',
           locationLabel: getVanillaSlotLabel(item.slot),
           slot: item.slot,
@@ -218,6 +324,7 @@ class PlayerService {
     for (const item of inventory.trinkets) {
       if (isMatch(item)) {
         results.push({
+          characterSlot: inventory.selectedSlot,
           containerType: 'TRINKET',
           locationLabel: t('LOCATION_TRINKET', lang, {
             type: item.tags?.trinket_type || `Slot ${item.slot}`,
@@ -231,6 +338,7 @@ class PlayerService {
     for (const item of inventory.enderChest) {
       if (isMatch(item)) {
         results.push({
+          characterSlot: inventory.selectedSlot,
           containerType: 'ENDER_CHEST',
           locationLabel: t('LOCATION_ENDER_CHEST', lang, { slot: item.slot }),
           slot: item.slot,
@@ -243,6 +351,7 @@ class PlayerService {
       for (const item of bag.items) {
         if (isMatch(item)) {
           results.push({
+            characterSlot: inventory.selectedSlot,
             containerType: 'BACKPACK',
             bagUuid: bag.bagUuid,
             locationLabel: t('LOCATION_BACKPACK', lang, {
@@ -260,6 +369,7 @@ class PlayerService {
 
     return {
       keyword: keyword.trim(),
+      selectedSlot: inventory.selectedSlot,
       totalMatches: results.length,
       results,
     };

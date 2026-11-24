@@ -14,8 +14,8 @@ class PlayerController {
 
   async getProfile(req, res, next) {
     try {
-      // Truyền req.user (đã được optionalAuth giải mã từ Bearer Token) xuống Service
-      const data = await playerService.getProfile(req.params.username, req.user);
+      const slot = req.query.slot !== undefined ? Number(req.query.slot) : null;
+      const data = await playerService.getProfile(req.params.username, req.user, slot);
       return ApiResponse.success(res, data, 'PROFILE_SUCCESS');
     } catch (error) {
       next(error);
@@ -24,7 +24,8 @@ class PlayerController {
 
   async getMe(req, res, next) {
     try {
-      const data = await playerService.getMyProfile(req.user);
+      const slot = req.query.slot !== undefined ? Number(req.query.slot) : null;
+      const data = await playerService.getMyProfile(req.user, slot);
       return ApiResponse.success(res, data, 'ME_SUCCESS');
     } catch (error) {
       next(error);
@@ -35,7 +36,8 @@ class PlayerController {
     try {
       const includeRaw = req.query.raw === 'true';
       const lang = resolveLang(req);
-      const data = await playerService.getMyInventory(req.user, { includeRaw, lang });
+      const slot = req.query.slot !== undefined ? Number(req.query.slot) : null;
+      const data = await playerService.getMyInventory(req.user, { includeRaw, lang, slot });
       return ApiResponse.success(res, data, 'INVENTORY_SUCCESS');
     } catch (error) {
       next(error);
@@ -46,7 +48,12 @@ class PlayerController {
     try {
       const includeRaw = req.query.raw === 'true';
       const lang = resolveLang(req);
-      const data = await playerService.searchMyInventory(req.user, req.query.q, { includeRaw, lang });
+      const slot = req.query.slot !== undefined ? Number(req.query.slot) : null;
+      const data = await playerService.searchMyInventory(req.user, req.query.q, {
+        includeRaw,
+        lang,
+        slot,
+      });
       return ApiResponse.success(res, data, 'SEARCH_SUCCESS');
     } catch (error) {
       next(error);

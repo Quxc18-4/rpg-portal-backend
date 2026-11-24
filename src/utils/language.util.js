@@ -308,6 +308,55 @@ const MESSAGES = {
     vi: 'Tính năng chỉ đường tọa độ NPC và Waystone chỉ dành cho tài khoản VIP',
     en: 'NPC coordinates and Waystone navigation are exclusive to VIP accounts',
   },
+  // Multi-Slot, VIP & Web Shop
+  INVALID_CHARACTER_SLOT: {
+    vi: 'Slot nhân vật không hợp lệ hoặc chưa được mở khóa',
+    en: 'Invalid or locked character slot',
+  },
+  SHOP_PACKAGES_SUCCESS: {
+    vi: 'Lấy danh sách gói cửa hàng thành công',
+    en: 'Shop packages retrieved successfully',
+  },
+  SHOP_INVALID_PACKAGE: {
+    vi: 'Gói vật phẩm không tồn tại hoặc không hợp lệ',
+    en: 'Invalid or unknown shop package',
+  },
+  SHOP_MAX_SLOTS_REACHED: {
+    vi: 'Tài khoản của bạn đã đạt giới hạn tối đa 10 Slot nhân vật',
+    en: 'Your account has already reached the maximum of 10 character slots',
+  },
+  SHOP_ORDER_CREATED: {
+    vi: 'Tạo đơn thanh toán thành công, vui lòng chuyển khoản đúng nội dung để hệ thống tự động kích hoạt',
+    en: 'Payment order created successfully. Please transfer with the exact reference code for automatic activation',
+  },
+  SHOP_ORDER_NOT_FOUND: {
+    vi: 'Không tìm thấy mã đơn hàng',
+    en: 'Shop order not found',
+  },
+  SHOP_ORDER_ALREADY_PROCESSED: {
+    vi: 'Đơn hàng này đã được xử lý trước đó',
+    en: 'This order has already been processed',
+  },
+  SHOP_ORDER_PAID_SUCCESS: {
+    vi: 'Xác nhận thanh toán và kích hoạt gói thành công',
+    en: 'Payment confirmed and package activated successfully',
+  },
+  SHOP_ORDERS_LIST_SUCCESS: {
+    vi: 'Lấy lịch sử đơn hàng thành công',
+    en: 'Orders history retrieved successfully',
+  },
+  VIP_GOLD_PURCHASE_QUEUED: {
+    vi: 'Đã gửi yêu cầu mua VIP 30 ngày bằng 100 Vàng tới máy chủ, hệ thống sẽ trừ tiền và kích hoạt sau vài giây',
+    en: 'VIP 30-day purchase with 100 Gold has been queued and will activate within a few seconds',
+  },
+  VIP_PURCHASE_PENDING_IN_PROGRESS: {
+    vi: 'Giao dịch mua VIP trước đó đang chờ máy chủ xử lý, vui lòng đợi vài giây',
+    en: 'A previous VIP purchase is still being processed by the server, please wait a few seconds',
+  },
+  INVALID_WEBHOOK_SECRET: {
+    vi: 'Mã xác thực Webhook không hợp lệ',
+    en: 'Invalid webhook secret signature',
+  },
 };
 
 const normalizeLang = (rawLang) => {

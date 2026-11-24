@@ -118,56 +118,99 @@ class OperatorRepository {
     const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
     const skip = (safePage - 1) * safeLimit;
 
-    const filter = {};
+    const matchStage = {};
     if (search && search.trim() !== '') {
       const regex = new RegExp(escapeRegex(search.trim()), 'i');
-      filter.$or = [{ username: regex }, { _id: regex }];
+      matchStage.$or = [{ username: regex }, { _id: regex }];
     }
 
     const allowedSortFields = {
-      level: 'level',
-      coins: 'coins',
+      level: 'resolvedLevel',
+      coins: 'resolvedBalance',
+      balance: 'resolvedBalance',
       username: 'username',
       lastLogin: 'lastLogin',
     };
-    const sortField = allowedSortFields[sortBy] || 'level';
+    const sortField = allowedSortFields[sortBy] || 'resolvedLevel';
     const sortDir = String(order).toLowerCase() === 'asc' ? 1 : -1;
 
     const playersCol = mongoose.connection.db.collection('players');
-    const [players, total] = await Promise.all([
-      playersCol
-        .find(filter, {
-          projection: {
-            _id: 1,
-            username: 1,
-            level: 1,
-            exp: 1,
-            coins: 1,
-            classId: 1,
-            playerClass: 1,
-            lastLogin: 1,
+
+    const pipeline = [
+      { $match: matchStage },
+      {
+        $addFields: {
+          _activeSlotKey: { $toString: { $ifNull: ['$active_slot', 1] } },
+          _slotsArray: { $objectToArray: { $ifNull: ['$slots', {}] } },
+        },
+      },
+      {
+        $addFields: {
+          _matchedSlot: {
+            $first: {
+              $filter: {
+                input: '$_slotsArray',
+                as: 'item',
+                cond: { $eq: ['$$item.k', '$_activeSlotKey'] },
+              },
+            },
           },
-        })
-        .sort({ [sortField]: sortDir, username: 1 })
-        .skip(skip)
-        .limit(safeLimit)
-        .toArray(),
-      playersCol.countDocuments(filter),
+        },
+      },
+      {
+        $addFields: {
+          resolvedActiveSlot: { $ifNull: ['$active_slot', 1] },
+          resolvedLevel: { $ifNull: ['$_matchedSlot.v.level', { $ifNull: ['$level', 1] }] },
+          resolvedBalance: {
+            $ifNull: ['$_matchedSlot.v.balance', { $ifNull: ['$balance', { $ifNull: ['$coins', 0] }] }],
+          },
+          resolvedClassId: {
+            $ifNull: ['$_matchedSlot.v.class', { $ifNull: ['$class', { $ifNull: ['$classId', 'commoner'] }] }],
+          },
+        },
+      },
+      { $sort: { [sortField]: sortDir, username: 1 } },
+      { $skip: skip },
+      { $limit: safeLimit },
+    ];
+
+    const [players, total] = await Promise.all([
+      playersCol.aggregate(pipeline).toArray(),
+      playersCol.countDocuments(matchStage),
     ]);
 
     const uuids = players.map((p) => p._id);
-    const webAccounts = await WebAccount.find({ uuid: { $in: uuids } }).lean();
+    const [webAccounts, gameAccounts] = await Promise.all([
+      WebAccount.find({ uuid: { $in: uuids } }).lean(),
+      mongoose.connection.db
+        .collection('player_accounts')
+        .find(
+          { _id: { $in: uuids } },
+          { projection: { _id: 1, is_vip: 1, vip_expires_at: 1, max_slots: 1 } }
+        )
+        .toArray(),
+    ]);
+
     const webMap = new Map(webAccounts.map((w) => [w.uuid, w]));
+    const accMap = new Map(gameAccounts.map((a) => [a._id, a]));
+    const now = Date.now();
 
     return {
       items: players.map((p) => {
         const web = webMap.get(p._id);
+        const acc = accMap.get(p._id);
+        const expiresAt = Number(acc?.vip_expires_at || 0);
+        const isVip = Boolean(acc?.is_vip) && (expiresAt === 0 || expiresAt > now);
+
         return {
           uuid: p._id,
           username: p.username,
-          level: p.level || 1,
-          classId: p.classId || p.playerClass || null,
-          rawCoins: p.coins || 0,
+          activeSlot: p.resolvedActiveSlot,
+          maxSlots: Number(acc?.max_slots || 2),
+          isVip,
+          level: p.resolvedLevel,
+          classId: p.resolvedClassId,
+          rawCoins: p.resolvedBalance,
           role: web?.role || 'USER',
           hasWebAccount: Boolean(web),
           discordUsername: web?.discord_username || null,
@@ -210,7 +253,10 @@ class OperatorRepository {
   async findAllPlayerUsernamesForScan(limit = 200) {
     return mongoose.connection.db
       .collection('players')
-      .find({ username: { $exists: true, $ne: '' } }, { projection: { _id: 1, username: 1 } })
+      .find(
+        { username: { $exists: true, $ne: '' } },
+        { projection: { _id: 1, username: 1, active_slot: 1, slots: 1 } }
+      )
       .limit(limit)
       .toArray();
   }

@@ -29,7 +29,7 @@ class OperatorService {
     const ownerViewer = { uuid: target._id, username: target.username };
 
     const [profile, inventory, jobs, mounts, crops, waystones] = await Promise.all([
-      playerService.getProfile(target.username, ownerViewer),
+      playerService.getProfile(target.username, ownerViewer, options.slot),
       playerService.getMyInventory(ownerViewer, options),
       jobService.getMyJobs(target._id),
       mountService.getMyMounts(target._id, options),
@@ -38,6 +38,34 @@ class OperatorService {
     ]);
 
     return { profile, inventory, jobs, mounts, crops, waystones };
+  }
+
+  async searchPlayerAllCharacterSlots(playerDoc, keyword, options = {}) {
+    const slotsObj =
+      playerDoc.slots && typeof playerDoc.slots === 'object' ? playerDoc.slots : null;
+    const slotKeys = slotsObj && Object.keys(slotsObj).length > 0 ? Object.keys(slotsObj) : ['1'];
+
+    const ownerViewer = { uuid: playerDoc._id, username: playerDoc.username };
+    const allResults = [];
+
+    for (const slotKey of slotKeys) {
+      const slotNum = Number(slotKey);
+      if (!Number.isInteger(slotNum) || slotNum < 1 || slotNum > 10) continue;
+
+      try {
+        const found = await playerService.searchMyInventory(ownerViewer, keyword, {
+          ...options,
+          slot: slotNum,
+        });
+        if (Array.isArray(found?.results)) {
+          allResults.push(...found.results);
+        }
+      } catch (_) {
+        // Bỏ qua slot trống/lỗi
+      }
+    }
+
+    return allResults;
   }
 
   async inspectPlayerInventory(username, options = {}) {
@@ -100,18 +128,10 @@ class OperatorService {
     const target = await this.resolveTargetPlayer(username);
     const cleanKeyword = String(keyword).trim().normalize('NFC');
 
-    const [baseFound, mountItems] = await Promise.all([
-      playerService.searchMyInventory(
-        { uuid: target._id, username: target.username },
-        cleanKeyword,
-        options
-      ),
+    const [baseItems, mountItems] = await Promise.all([
+      this.searchPlayerAllCharacterSlots(target, cleanKeyword, options),
       this.searchPlayerMountStorage(target._id, cleanKeyword, options),
     ]);
-
-    const baseItems = Array.isArray(baseFound)
-      ? baseFound
-      : baseFound?.items || baseFound?.matches || baseFound?.results || [];
 
     const combinedItems = [...baseItems, ...mountItems];
     const totalQuantity = combinedItems.reduce(
@@ -237,18 +257,10 @@ class OperatorService {
         chunk.map(async (p) => {
           if (!p.username) return null;
 
-          const [baseFound, mountItems] = await Promise.all([
-            playerService.searchMyInventory(
-              { uuid: p._id, username: p.username },
-              cleanKeyword,
-              options
-            ),
+          const [baseItems, mountItems] = await Promise.all([
+            this.searchPlayerAllCharacterSlots(p, cleanKeyword, options),
             this.searchPlayerMountStorage(p._id, cleanKeyword, options),
           ]);
-
-          const baseItems = Array.isArray(baseFound)
-            ? baseFound
-            : baseFound?.items || baseFound?.matches || baseFound?.results || [];
 
           const combinedItems = [...baseItems, ...mountItems];
           if (combinedItems.length === 0) return null;

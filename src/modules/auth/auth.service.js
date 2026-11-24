@@ -1,8 +1,8 @@
-const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const authRepo = require('./auth.repository');
+const PlayerAccount = require('../../models/PlayerAccount.model');
 const { AppError } = require('../../utils/error.util');
 
 class AuthService {
@@ -23,6 +23,30 @@ class AuthService {
     return sha256Base64 === storedPassword;
   }
 
+  async buildUserSessionPayload(uuid, fallbackUsername = 'Player') {
+    const [account, webAccount] = await Promise.all([
+      PlayerAccount.findById(uuid).lean(),
+      authRepo.findOrCreateWebAccount(uuid, fallbackUsername),
+    ]);
+
+    const username = account?.playerName || webAccount?.username || fallbackUsername;
+    const role = webAccount?.role || 'USER';
+    const vipState = PlayerAccount.resolveAccountVipState(account);
+
+    const token = this.signToken({ uuid, username, role });
+
+    return {
+      token,
+      user: {
+        uuid,
+        username,
+        email: account?.email || null,
+        role,
+        ...vipState,
+      },
+    };
+  }
+
   async loginWithInGameAccount(username, password) {
     const account = await authRepo.findInGameAccountByUsername(username);
     if (!account) {
@@ -34,21 +58,7 @@ class AuthService {
       throw AppError.unauthorized('INCORRECT_PASSWORD');
     }
 
-    const uuid = account._id;
-    const webAccount = await authRepo.findOrCreateWebAccount(uuid, account.playerName);
-    const role = webAccount?.role || 'USER';
-
-    const token = this.signToken({ uuid, username: account.playerName, role });
-
-    return {
-      token,
-      user: {
-        uuid,
-        username: account.playerName,
-        email: account.email,
-        role,
-      },
-    };
+    return this.buildUserSessionPayload(account._id, account.playerName);
   }
 
   getDiscordAuthUrl() {
@@ -94,12 +104,10 @@ class AuthService {
       };
     }
 
-    const role = linked.role || 'USER';
-    const token = this.signToken({ uuid: linked.uuid, username: linked.username, role });
+    const session = await this.buildUserSessionPayload(linked.uuid, linked.username);
     return {
       isLinked: true,
-      token,
-      user: { uuid: linked.uuid, username: linked.username, role },
+      ...session,
     };
   }
 
@@ -113,8 +121,7 @@ class AuthService {
       discordAvatar,
     });
 
-    const token = this.signToken({ uuid: user.uuid, username: user.username, role: user.role });
-    return { token, user };
+    return this.buildUserSessionPayload(user.uuid, user.username);
   }
 }
 
