@@ -296,6 +296,18 @@ const MESSAGES = {
     vi: 'Giao dịch đặt cược trước đó đang chờ ngân hàng xác nhận, vui lòng đợi vài giây',
     en: 'Your previous bet is awaiting bank confirmation, please wait a few seconds',
   },
+  NPC_LOOKUP_SUCCESS: {
+    vi: 'Tra cứu thương nhân thành công',
+    en: 'Merchant lookup completed successfully',
+  },
+  NPC_LOOKUP_QUERY_TOO_SHORT: {
+    vi: 'Vui lòng nhập ít nhất 2 ký tự để tìm kiếm vật phẩm',
+    en: 'Please enter at least 2 characters to search items',
+  },
+  NPC_LOOKUP_VIP_LOCKED: {
+    vi: 'Tính năng chỉ đường tọa độ NPC và Waystone chỉ dành cho tài khoản VIP',
+    en: 'NPC coordinates and Waystone navigation are exclusive to VIP accounts',
+  },
 };
 
 const normalizeLang = (rawLang) => {

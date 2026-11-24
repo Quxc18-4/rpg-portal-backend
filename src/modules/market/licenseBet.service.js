@@ -4,7 +4,7 @@ const operatorRepo = require('../operator/operator.repository');
 const safezoneService = require('../world/safezone.service');
 const licenseService = require('./license.service');
 const { formatCurrency } = require('../../utils/currency.util');
-const { translate } = require('../../utils/language.util');
+const { t } = require('../../utils/language.util');
 
 const BETTING_LOCK_THRESHOLD = 80;
 const MIN_BET_AMOUNT = 10;
@@ -13,7 +13,7 @@ const SETTLEMENT_GRACE_MS = 6000; // Chờ 6s để WebActionManager (3s) xử l
 const WORKER_INTERVAL_MS = 15000; // 15 giây quét 1 lần
 
 const createHttpError = (statusCode, messageKey, lang = 'vi') => {
-  const err = new Error(translate(messageKey, lang));
+  const err = new Error(t(messageKey, lang));
   err.statusCode = statusCode;
   err.messageKey = messageKey;
   return err;
