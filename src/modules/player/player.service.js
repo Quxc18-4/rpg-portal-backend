@@ -10,6 +10,7 @@ class PlayerService {
   resolveAccessLevel(targetPlayer, viewerUser) {
     if (!viewerUser || !viewerUser.uuid) return 'PUBLIC';
     if (viewerUser.uuid === targetPlayer._id) return 'OWNER';
+    if (viewerUser.role === 'ADMIN' || viewerUser.role === 'MODERATOR') return 'OWNER';
 
     const friendList = Array.isArray(targetPlayer.friends) ? targetPlayer.friends : [];
     if (friendList.includes(viewerUser.uuid)) return 'FRIEND';
