@@ -3,6 +3,7 @@ const playerRepo = require('./player.repository');
 const PlayerAccount = require('../../models/PlayerAccount.model');
 const questService = require('./quest.service');
 const friendService = require('./friend.service');
+const guildService = require('../guild/guild.service');
 const { formatCurrency } = require('../../utils/currency.util');
 const { decodeItemStackBase64, decodeTrinketsMap } = require('../../utils/itemDecoder.util');
 const { AppError } = require('../../utils/error.util');
@@ -117,9 +118,10 @@ class PlayerService {
     }
 
     const accessLevel = await this.resolveAccessLevel(player, viewerUser);
-    const [account, adventurerRank] = await Promise.all([
+    const [account, adventurerRank, guildBadge] = await Promise.all([
       PlayerAccount.findById(player._id).lean(),
       questService.getRankSummaryByUuid(player._id),
+      guildService.getPlayerGuildBadge(player._id),
     ]);
     const vipState = PlayerAccount.resolveAccountVipState(account);
 
@@ -138,6 +140,7 @@ class PlayerService {
       username: player.username,
       isVip: vipState.isVip,
       adventurerRank,
+      guild: guildBadge,
       activeSlot,
       selectedSlot,
       class: slotData.class || 'commoner',

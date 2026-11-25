@@ -22,6 +22,7 @@ router.get('/safezones', operatorController.getAllSafezones);
 router.get('/dens', operatorController.getAllDens);
 router.get('/ecosystems', operatorController.getAllEcosystems);
 router.get('/rewards', operatorController.getAllRewards);
+router.get('/guilds', operatorController.getAllGuilds);
 
 // 2. Inspect chi tiết từng người chơi (MODERATOR + ADMIN)
 router.get('/players/:username/inspect', operatorController.inspectPlayer);

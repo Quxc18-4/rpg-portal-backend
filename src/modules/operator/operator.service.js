@@ -8,6 +8,7 @@ const mountService = require('../player/mount.service');
 const cropService = require('../world/crop.service');
 const waystoneService = require('../world/waystone.service');
 const questService = require('../player/quest.service');
+const guildService = require('../guild/guild.service');
 const { formatCurrency } = require('../../utils/currency.util');
 const { AppError } = require('../../utils/error.util');
 const { matchDecodedItem } = require('../../utils/itemDecoder.util');
@@ -300,6 +301,15 @@ class OperatorService {
     return operatorRepo.findActions(filter, limit);
   }
 
+  async inspectPlayerQuests(username) {
+    const target = await this.resolveTargetPlayer(username);
+    return questService.getPlayerQuests(target._id);
+  }
+
+  async getAllGuildsAdmin(options = {}) {
+    return guildService.getAllGuildsAdmin(options);
+  }
+
   // ======================== 3. QUYỀN GHI/XÓA CÓ GIỚI HẠN (WD) ========================
 
   validateModeratorConstraints(policy, action, payload = {}) {
@@ -390,10 +400,6 @@ class OperatorService {
     // Đảm bảo bản ghi web_accounts tồn tại ngay cả khi người chơi chưa từng login web
     await authRepo.findOrCreateWebAccount(target._id, target.username);
     return authRepo.updateRoleByUuid(target._id, normalizedRole);
-  }
-  async inspectPlayerQuests(username) {
-    const target = await this.resolveTargetPlayer(username);
-    return questService.getPlayerQuests(target._id);
   }
 }
 

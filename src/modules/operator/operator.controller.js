@@ -39,6 +39,17 @@ class OperatorController {
     }
   }
 
+  async getAllGuilds(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const lang = resolveLang(req);
+      const data = await operatorService.getAllGuildsAdmin({ includeRaw, lang });
+      return ApiResponse.success(res, data, 'OPERATOR_GUILDS_ALL_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // --- INSPECT TỪNG NGƯỜI CHƠI ---
   async inspectPlayer(req, res, next) {
     try {
@@ -103,6 +114,15 @@ class OperatorController {
   async inspectPlayerWaystones(req, res, next) {
     try {
       const data = await operatorService.inspectPlayerWaystones(req.params.username);
+      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+  
+  async inspectPlayerQuests(req, res, next) {
+    try {
+      const data = await operatorService.inspectPlayerQuests(req.params.username);
       return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
     } catch (error) {
       next(error);
@@ -292,15 +312,6 @@ class OperatorController {
     try {
       const data = await licenseBetService.processPendingSettlements();
       return ApiResponse.success(res, data, 'OPERATOR_ACTION_SUCCESS');
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async inspectPlayerQuests(req, res, next) {
-    try {
-      const data = await operatorService.inspectPlayerQuests(req.params.username);
-      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
     } catch (error) {
       next(error);
     }

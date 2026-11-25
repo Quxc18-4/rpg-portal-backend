@@ -365,6 +365,22 @@ const MESSAGES = {
     vi: 'Lấy danh sách bạn bè thành công',
     en: 'Player friends list retrieved successfully',
   },
+  GUILD_NOT_FOUND: {
+    vi: 'Không tìm thấy bang hội này',
+    en: 'Guild not found',
+  },
+  GUILDS_LIST_SUCCESS: {
+    vi: 'Lấy danh sách bang hội thành công',
+    en: 'Guilds list retrieved successfully',
+  },
+  GUILD_DETAIL_SUCCESS: {
+    vi: 'Lấy thông tin chi tiết bang hội thành công',
+    en: 'Guild details retrieved successfully',
+  },
+  OPERATOR_GUILDS_ALL_SUCCESS: {
+    vi: 'Lấy danh sách toàn bộ bang hội thành công',
+    en: 'All guilds retrieved successfully',
+  },
 };
 
 const normalizeLang = (rawLang) => {

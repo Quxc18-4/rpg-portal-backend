@@ -28,6 +28,7 @@ router.get('/health', async (req, res, next) => {
 
 router.use('/auth', require('../modules/auth/auth.routes'));
 router.use('/players', require('../modules/player/player.routes'));
+router.use('/guilds', require('../modules/guild/guild.routes'));
 router.use('/market', require('../modules/market/economy.routes'));
 router.use('/world', require('../modules/world/zone.routes'));
 router.use('/market', require('../modules/market/market.routes'));
