@@ -1,19 +1,21 @@
 const mongoose = require('mongoose');
 const playerRepo = require('./player.repository');
 const PlayerAccount = require('../../models/PlayerAccount.model');
+const questService = require('./quest.service');
+const friendService = require('./friend.service');
 const { formatCurrency } = require('../../utils/currency.util');
 const { decodeItemStackBase64, decodeTrinketsMap } = require('../../utils/itemDecoder.util');
 const { AppError } = require('../../utils/error.util');
 const { DEFAULT_LANG, t } = require('../../utils/language.util');
 
 class PlayerService {
-  resolveAccessLevel(targetPlayer, viewerUser) {
+  async resolveAccessLevel(targetPlayer, viewerUser) {
     if (!viewerUser || !viewerUser.uuid) return 'PUBLIC';
     if (viewerUser.uuid === targetPlayer._id) return 'OWNER';
     if (viewerUser.role === 'ADMIN' || viewerUser.role === 'MODERATOR') return 'OWNER';
 
-    const friendList = Array.isArray(targetPlayer.friends) ? targetPlayer.friends : [];
-    if (friendList.includes(viewerUser.uuid)) return 'FRIEND';
+    const isFriend = await friendService.areFriends(targetPlayer._id, viewerUser.uuid);
+    if (isFriend) return 'FRIEND';
 
     return 'PUBLIC';
   }
@@ -114,8 +116,11 @@ class PlayerService {
       throw new AppError('PLAYER_NOT_FOUND', 404);
     }
 
-    const accessLevel = this.resolveAccessLevel(player, viewerUser);
-    const account = await PlayerAccount.findById(player._id).lean();
+    const accessLevel = await this.resolveAccessLevel(player, viewerUser);
+    const [account, adventurerRank] = await Promise.all([
+      PlayerAccount.findById(player._id).lean(),
+      questService.getRankSummaryByUuid(player._id),
+    ]);
     const vipState = PlayerAccount.resolveAccountVipState(account);
 
     // Người ngoài & Bạn bè chỉ xem được slot đang chơi; chính chủ được chọn ?slot=N
@@ -132,6 +137,7 @@ class PlayerService {
       uuid: player._id,
       username: player.username,
       isVip: vipState.isVip,
+      adventurerRank,
       activeSlot,
       selectedSlot,
       class: slotData.class || 'commoner',

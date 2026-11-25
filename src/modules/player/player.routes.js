@@ -8,6 +8,8 @@ const cropController = require('../world/crop.controller');
 const waystoneController = require('../world/waystone.controller');
 const rewardController = require('./reward.controller');
 const licenseBetController = require('../market/licenseBet.controller');
+const questController = require('./quest.controller');
+const friendController = require('./friend.controller');
 
 router.get('/leaderboard', playerController.getLeaderboard);
 router.get('/me', requireAuth, playerController.getMe);
@@ -19,6 +21,8 @@ router.get('/me/crops', requireAuth, cropController.getMyCrops);
 router.get('/me/waystones', requireAuth, waystoneController.getMyWaystones);
 router.get('/me/rewards', requireAuth, rewardController.getMyRewards);
 router.get('/me/licenses/bets', requireAuth, licenseBetController.getMyBets);
+router.get('/me/quests', requireAuth, questController.getMyQuests);
+router.get('/me/friends', requireAuth, friendController.getMyFriends);
 router.get('/:username', optionalAuth, playerController.getProfile);
 
 module.exports = router;

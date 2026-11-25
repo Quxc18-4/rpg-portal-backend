@@ -357,6 +357,14 @@ const MESSAGES = {
     vi: 'Mã xác thực Webhook không hợp lệ',
     en: 'Invalid webhook secret signature',
   },
+  PLAYER_QUESTS_SUCCESS: {
+    vi: 'Lấy thông tin hạng mạo hiểm giả và nhiệm vụ thành công',
+    en: 'Player adventurer rank and quests retrieved successfully',
+  },
+  PLAYER_FRIENDS_SUCCESS: {
+    vi: 'Lấy danh sách bạn bè thành công',
+    en: 'Player friends list retrieved successfully',
+  },
 };
 
 const normalizeLang = (rawLang) => {

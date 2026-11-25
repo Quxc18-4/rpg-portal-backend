@@ -296,6 +296,15 @@ class OperatorController {
       next(error);
     }
   }
+
+  async inspectPlayerQuests(req, res, next) {
+    try {
+      const data = await operatorService.inspectPlayerQuests(req.params.username);
+      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new OperatorController();
