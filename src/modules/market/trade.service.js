@@ -191,6 +191,11 @@ class TradeService {
     const {
       player,
       partner,
+      date,
+      from,
+      to,
+      startDate,
+      endDate,
       q = '',
       sortBy = 'newest',
       page = 1,
@@ -200,26 +205,44 @@ class TradeService {
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(50, Math.max(1, Number(limit) || 20));
     const staff = this.isStaff(viewerUser);
+    const andConditions = [];
 
-    let filter = {};
     if (forceMine || !staff) {
       const myUuid = viewerUser.uuid;
       if (partner && String(partner).trim() !== '') {
-        filter = tradeRepository.buildPairFilter(myUuid, String(partner).trim());
+        andConditions.push(tradeRepository.buildPairFilter(myUuid, String(partner).trim()));
       } else {
-        filter = tradeRepository.buildPlayerFilter(myUuid);
+        andConditions.push(tradeRepository.buildPlayerFilter(myUuid));
       }
     } else {
       const cleanPlayer = player ? String(player).trim() : '';
       const cleanPartner = partner ? String(partner).trim() : '';
       if (cleanPlayer && cleanPartner) {
-        filter = tradeRepository.buildPairFilter(cleanPlayer, cleanPartner);
+        andConditions.push(tradeRepository.buildPairFilter(cleanPlayer, cleanPartner));
       } else if (cleanPlayer) {
-        filter = tradeRepository.buildPlayerFilter(cleanPlayer);
+        andConditions.push(tradeRepository.buildPlayerFilter(cleanPlayer));
       } else if (cleanPartner) {
-        filter = tradeRepository.buildPlayerFilter(cleanPartner);
+        andConditions.push(tradeRepository.buildPlayerFilter(cleanPartner));
       }
     }
+
+    const dateFilter = tradeRepository.buildDateFilter({
+      date,
+      from,
+      to,
+      startDate,
+      endDate,
+    });
+    if (dateFilter) {
+      andConditions.push(dateFilter);
+    }
+
+    const filter =
+      andConditions.length === 0
+        ? {}
+        : andConditions.length === 1
+        ? andConditions[0]
+        : { $and: andConditions };
 
     const sort = tradeRepository.resolveSort(sortBy);
     const hasKeyword = Boolean(q && String(q).trim() !== '');
