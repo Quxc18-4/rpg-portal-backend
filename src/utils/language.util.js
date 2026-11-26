@@ -389,6 +389,26 @@ const MESSAGES = {
     vi: 'Lấy thông tin kho bang hội thành công',
     en: 'Guild vault retrieved successfully',
   },
+  MARKET_AUCTIONS_SUCCESS: {
+    vi: 'Lấy danh sách chợ đấu giá thành công',
+    en: 'Active market auctions retrieved successfully',
+  },
+  MARKET_AUCTION_HISTORY_SUCCESS: {
+    vi: 'Lấy lịch sử chợ đấu giá thành công',
+    en: 'Auction history retrieved successfully',
+  },
+  MARKET_AUCTION_DETAIL_SUCCESS: {
+    vi: 'Lấy chi tiết phiên đấu giá thành công',
+    en: 'Auction details retrieved successfully',
+  },
+  MARKET_AUCTION_NOT_FOUND: {
+    vi: 'Không tìm thấy phiên đấu giá này',
+    en: 'Auction listing not found',
+  },
+  MARKET_MINE_AUTH_REQUIRED: {
+    vi: 'Vui lòng đăng nhập để lọc vật phẩm đấu giá của bạn',
+    en: 'Authentication required to filter your own auctions',
+  },
 };
 
 const normalizeLang = (rawLang) => {
