@@ -22,6 +22,7 @@ class AuctionRepository {
   buildSellerFilter(sellerUuid) {
     return {
       $or: [
+        { seller_id: sellerUuid },
         { seller: sellerUuid },
         { seller_uuid: sellerUuid },
         { sellerUuid: sellerUuid },
@@ -33,6 +34,7 @@ class AuctionRepository {
   buildBuyerFilter(buyerUuid) {
     return {
       $or: [
+        { buyer_id: buyerUuid },
         { buyer: buyerUuid },
         { buyer_uuid: buyerUuid },
         { buyerUuid: buyerUuid },
@@ -66,9 +68,8 @@ class AuctionRepository {
     return {
       $or: [
         { price: range },
-        { buy_now_price: range },
-        { current_bid: range },
         { final_price: range },
+        { buy_now_price: range },
       ],
     };
   }
@@ -76,22 +77,23 @@ class AuctionRepository {
   resolveSort(sortBy = 'newest', isHistory = false) {
     switch (sortBy) {
       case 'price_asc':
-        return { price: 1, buy_now_price: 1, final_price: 1, _id: -1 };
+        return { price: 1, final_price: 1, _id: -1 };
       case 'price_desc':
-        return { price: -1, buy_now_price: -1, final_price: -1, _id: -1 };
+        return { price: -1, final_price: -1, _id: -1 };
+      case 'next_tax':
       case 'ending_soon':
         return isHistory
-          ? { sold_at: -1, ended_at: -1, _id: -1 }
-          : { expires_at: 1, end_time: 1, _id: -1 };
+          ? { sold_time: -1, list_time: -1, _id: -1 }
+          : { next_tax_time: 1, expires_at: 1, _id: -1 };
       case 'newest':
       default:
         return isHistory
-          ? { sold_at: -1, ended_at: -1, closed_at: -1, created_at: -1, _id: -1 }
-          : { created_at: -1, listed_at: -1, start_time: -1, _id: -1 };
+          ? { sold_time: -1, list_time: -1, _id: -1 }
+          : { list_time: -1, created_at: -1, _id: -1 };
     }
   }
 
-  async findActive({ filter = {}, sort = { created_at: -1, _id: -1 }, skip = 0, limit = 20 } = {}) {
+  async findActive({ filter = {}, sort = { list_time: -1, _id: -1 }, skip = 0, limit = 20 } = {}) {
     const col = this.getActiveCollection();
     const [docs, total] = await Promise.all([
       col.find(filter).sort(sort).skip(skip).limit(limit).toArray(),
@@ -100,11 +102,11 @@ class AuctionRepository {
     return { docs, total };
   }
 
-  async findAllActiveMatching({ filter = {}, sort = { created_at: -1, _id: -1 }, maxScan = 500 } = {}) {
+  async findAllActiveMatching({ filter = {}, sort = { list_time: -1, _id: -1 }, maxScan = 500 } = {}) {
     return this.getActiveCollection().find(filter).sort(sort).limit(maxScan).toArray();
   }
 
-  async findHistory({ filter = {}, sort = { sold_at: -1, _id: -1 }, skip = 0, limit = 20 } = {}) {
+  async findHistory({ filter = {}, sort = { sold_time: -1, _id: -1 }, skip = 0, limit = 20 } = {}) {
     const col = this.getHistoryCollection();
     const [docs, total] = await Promise.all([
       col.find(filter).sort(sort).skip(skip).limit(limit).toArray(),
@@ -113,7 +115,7 @@ class AuctionRepository {
     return { docs, total };
   }
 
-  async findAllHistoryMatching({ filter = {}, sort = { sold_at: -1, _id: -1 }, maxScan = 500 } = {}) {
+  async findAllHistoryMatching({ filter = {}, sort = { sold_time: -1, _id: -1 }, maxScan = 500 } = {}) {
     return this.getHistoryCollection().find(filter).sort(sort).limit(maxScan).toArray();
   }
 

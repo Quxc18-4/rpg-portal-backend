@@ -5,6 +5,16 @@ const itemDecoder = require('../../utils/itemDecoder.util');
 const { AppError } = require('../../utils/error.util');
 
 class AuctionService {
+  toNumericValue(rawVal) {
+    if (rawVal === undefined || rawVal === null || rawVal === '') return null;
+    if (typeof rawVal === 'number') return Number.isFinite(rawVal) ? rawVal : null;
+    if (typeof rawVal === 'object' && typeof rawVal.toNumber === 'function') {
+      return rawVal.toNumber();
+    }
+    const parsed = Number(rawVal);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
   normalizeTimestamp(rawVal) {
     if (rawVal === undefined || rawVal === null || rawVal === '') return null;
 
@@ -13,10 +23,10 @@ class AuctionService {
       return Number.isNaN(ms) ? null : { ms, iso: rawVal.toISOString() };
     }
 
-    if (typeof rawVal === 'number') {
-      if (!Number.isFinite(rawVal) || rawVal <= 0) return null;
-      // Tự nhận diện epoch giây (< 1e12) vs mili-giây
-      const ms = rawVal < 1e12 ? rawVal * 1000 : rawVal;
+    const numeric = this.toNumericValue(rawVal);
+    if (numeric !== null) {
+      if (numeric <= 0) return null;
+      const ms = numeric < 1e12 ? numeric * 1000 : numeric;
       return { ms, iso: new Date(ms).toISOString() };
     }
 
@@ -48,7 +58,6 @@ class AuctionService {
 
     if (!decodedItem) return null;
 
-    // Loại bỏ slot mặc định (0) vì vật phẩm đấu giá đứng độc lập
     const { slot, ...cleanItem } = decodedItem;
     return cleanItem;
   }
@@ -67,11 +76,12 @@ class AuctionService {
 
   extractParticipants(doc) {
     const sellerUuid =
-      doc.seller || doc.seller_uuid || doc.sellerUuid || doc.owner || null;
+      doc.seller_id || doc.seller || doc.seller_uuid || doc.sellerUuid || doc.owner || null;
     const sellerName =
       doc.seller_name || doc.sellerName || doc.owner_name || null;
 
     const buyerUuid =
+      doc.buyer_id ||
       doc.buyer ||
       doc.buyer_uuid ||
       doc.buyerUuid ||
@@ -96,39 +106,30 @@ class AuctionService {
     const decodedItem = this.decodeAuctionItem(doc, options);
     const category = this.inferItemCategory(doc, decodedItem);
 
-    const rawPrice = Number(
-      doc.final_price ?? doc.price ?? doc.buy_now_price ?? doc.current_bid ?? 0
-    );
-    const rawStartingPrice =
-      doc.starting_price !== undefined ? Number(doc.starting_price) : null;
-    const rawCurrentBid =
-      doc.current_bid !== undefined ? Number(doc.current_bid) : null;
+    const rawPrice =
+      this.toNumericValue(doc.final_price ?? doc.price ?? doc.buy_now_price ?? doc.current_bid) ?? 0;
 
-    const created = this.normalizeTimestamp(
-      doc.created_at ?? doc.createdAt ?? doc.listed_at ?? doc.start_time
+    const listed = this.normalizeTimestamp(
+      doc.list_time ?? doc.created_at ?? doc.createdAt ?? doc.listed_at ?? doc.start_time
     );
-    const expires = this.normalizeTimestamp(
-      doc.expires_at ?? doc.expiresAt ?? doc.end_time ?? doc.expire_time
+    const nextTax = this.normalizeTimestamp(
+      doc.next_tax_time ?? doc.nextTaxTime
     );
     const sold = this.normalizeTimestamp(
-      doc.sold_at ?? doc.soldAt ?? doc.ended_at ?? doc.closed_at
+      doc.sold_time ?? doc.sold_at ?? doc.soldAt ?? doc.ended_at ?? doc.closed_at
     );
 
     const now = Date.now();
-    const isExpired =
-      source === 'ACTIVE' && expires ? expires.ms <= now : source === 'HISTORY' && doc.status === 'EXPIRED';
-    const remainingMs =
-      source === 'ACTIVE' && expires ? Math.max(0, expires.ms - now) : 0;
+    const nextTaxRemainingMs =
+      source === 'ACTIVE' && nextTax ? Math.max(0, nextTax.ms - now) : 0;
 
     const status = doc.status
       ? String(doc.status).toUpperCase()
       : source === 'ACTIVE'
-      ? isExpired
-        ? 'EXPIRED'
-        : 'ACTIVE'
+      ? 'ACTIVE'
       : buyerUuid
       ? 'SOLD'
-      : 'EXPIRED';
+      : 'CANCELLED';
 
     return {
       id: String(doc._id),
@@ -150,14 +151,10 @@ class AuctionService {
           }
         : null,
       price: formatCurrency(rawPrice),
-      startingPrice: rawStartingPrice !== null ? formatCurrency(rawStartingPrice) : null,
-      currentBid: rawCurrentBid !== null ? formatCurrency(rawCurrentBid) : null,
-      bidCount: Number(doc.bid_count ?? (Array.isArray(doc.bids) ? doc.bids.length : 0)),
-      createdAt: created?.iso || null,
-      expiresAt: expires?.iso || null,
+      listedAt: listed?.iso || null,
+      nextTaxAt: nextTax?.iso || null,
+      nextTaxRemainingMs,
       soldAt: sold?.iso || null,
-      remainingMs,
-      isExpired,
       item: decodedItem,
     };
   }
