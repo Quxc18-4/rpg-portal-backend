@@ -409,6 +409,22 @@ const MESSAGES = {
     vi: 'Vui lòng đăng nhập để lọc vật phẩm đấu giá của bạn',
     en: 'Authentication required to filter your own auctions',
   },
+  MARKET_TRADES_SUCCESS: {
+    vi: 'Lấy lịch sử giao dịch trực tiếp thành công',
+    en: 'Direct trade history retrieved successfully',
+  },
+  MARKET_TRADE_DETAIL_SUCCESS: {
+    vi: 'Lấy chi tiết giao dịch thành công',
+    en: 'Trade details retrieved successfully',
+  },
+  MARKET_TRADE_NOT_FOUND: {
+    vi: 'Không tìm thấy bản ghi giao dịch này',
+    en: 'Trade record not found',
+  },
+  MARKET_TRADE_FORBIDDEN: {
+    vi: 'Bạn không có quyền xem chi tiết giao dịch của người chơi khác',
+    en: 'You are not authorized to view another player\'s trade details',
+  },
 };
 
 const normalizeLang = (rawLang) => {
