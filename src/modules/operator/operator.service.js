@@ -9,6 +9,8 @@ const cropService = require('../world/crop.service');
 const waystoneService = require('../world/waystone.service');
 const questService = require('../player/quest.service');
 const guildService = require('../guild/guild.service');
+const auctionService = require('../market/auction.service');
+const tradeService = require('../market/trade.service');
 const { formatCurrency } = require('../../utils/currency.util');
 const { AppError } = require('../../utils/error.util');
 const { matchDecodedItem } = require('../../utils/itemDecoder.util');
@@ -400,6 +402,249 @@ class OperatorService {
     // Đảm bảo bản ghi web_accounts tồn tại ngay cả khi người chơi chưa từng login web
     await authRepo.findOrCreateWebAccount(target._id, target.username);
     return authRepo.updateRoleByUuid(target._id, normalizedRole);
+  }
+
+  // ======================== 5. KIỂM TOÁN KINH TẾ & CHỢ ========================
+
+  async resolveOptionalPlayerUuid(identifier) {
+    if (!identifier || String(identifier).trim() === '') return '';
+    const clean = String(identifier).trim();
+    const found = await playerRepo.findByUsername(clean);
+    return found ? found._id : clean;
+  }
+
+  async getEconomyOverview() {
+    const metrics = await operatorRepo.getEconomyOverviewMetrics();
+
+    const playerCopper = Number(metrics.playerCirculationRaw || 0);
+    const guildCopper = Number(metrics.guildBankTotalRaw || 0);
+    const activeAuctionCopper = Number(metrics.activeAuctionListedRaw || 0);
+    const soldAuctionCopper = Number(metrics.soldAuctionVolumeRaw || 0);
+
+    return {
+      generatedAt: new Date().toISOString(),
+      players: {
+        total: metrics.totalPlayers,
+        vipCount: metrics.vipCount,
+        totalWalletCirculation: formatCurrency(playerCopper),
+      },
+      guilds: {
+        total: metrics.totalGuilds,
+        totalBankReserves: formatCurrency(guildCopper),
+      },
+      economy: {
+        totalTrackedMoneySupply: formatCurrency(playerCopper + guildCopper),
+        auctionHouse: {
+          activeListings: metrics.activeAuctionsCount,
+          activeListedValue: formatCurrency(activeAuctionCopper),
+          completedSales: metrics.soldAuctionsCount,
+          completedSalesVolume: formatCurrency(soldAuctionCopper),
+        },
+        directTrades: {
+          totalCompletedTrades: metrics.totalTradesCount,
+        },
+      },
+    };
+  }
+
+  async getAllAuctionsAdmin(query = {}, options = {}) {
+    const adminViewer = { uuid: 'SYSTEM_ADMIN', role: 'ADMIN' };
+    const source = String(query.source || 'ACTIVE').trim().toUpperCase();
+
+    if (source === 'HISTORY') {
+      return auctionService.getAuctionHistory(query, adminViewer, options);
+    }
+    return auctionService.getActiveAuctions(query, adminViewer, options);
+  }
+
+  async getAllTradesAdmin(query = {}, options = {}) {
+    const adminViewer = { uuid: 'SYSTEM_ADMIN', role: 'ADMIN' };
+    const resolvedQuery = { ...query };
+
+    if (resolvedQuery.player) {
+      resolvedQuery.player = await this.resolveOptionalPlayerUuid(resolvedQuery.player);
+    }
+    if (resolvedQuery.partner) {
+      resolvedQuery.partner = await this.resolveOptionalPlayerUuid(resolvedQuery.partner);
+    }
+
+    return tradeService.getTrades(resolvedQuery, adminViewer, options);
+  }
+
+  async inspectPlayerAuctions(username, query = {}, options = {}) {
+    const target = await this.resolveTargetPlayer(username);
+    const subjectViewer = { uuid: target._id, role: 'PLAYER' };
+
+    const [active, history] = await Promise.all([
+      auctionService.getActiveAuctions(
+        { sellerUuid: target._id, page: query.page || 1, limit: query.limit || 20 },
+        { uuid: 'SYSTEM_ADMIN', role: 'ADMIN' },
+        options
+      ),
+      auctionService.getAuctionHistory(
+        {
+          mine: 'true',
+          role: query.role || 'all',
+          status: query.status || '',
+          page: query.page || 1,
+          limit: query.limit || 20,
+        },
+        subjectViewer,
+        options
+      ),
+    ]);
+
+    return {
+      uuid: target._id,
+      username: target.username,
+      active,
+      history,
+    };
+  }
+
+  async inspectPlayerTrades(username, query = {}, options = {}) {
+    const target = await this.resolveTargetPlayer(username);
+    const subjectViewer = { uuid: target._id, role: 'PLAYER' };
+
+    const trades = await tradeService.getTrades(
+      query,
+      subjectViewer,
+      options,
+      { forceMine: true }
+    );
+
+    return {
+      uuid: target._id,
+      username: target.username,
+      ...trades,
+    };
+  }
+
+  async getEconomyAuditFeed(query = {}, options = {}) {
+    const {
+      type = 'ALL',
+      player = '',
+      q = '',
+      minCopper = 0,
+      oneSidedOnly = 'false',
+      from,
+      to,
+      page = 1,
+      limit = 20,
+    } = query;
+
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(50, Math.max(1, Number(limit) || 20));
+    const normalizedType = String(type || 'ALL').trim().toUpperCase();
+    const minThreshold = Math.max(0, Number(minCopper) || 0);
+    const onlyOneSided = String(oneSidedOnly) === 'true';
+
+    const targetUuid = await this.resolveOptionalPlayerUuid(player);
+    const adminViewer = { uuid: 'SYSTEM_ADMIN', role: 'ADMIN' };
+    const entries = [];
+
+    if (normalizedType === 'ALL' || normalizedType === 'AUCTION') {
+      const auctionQuery = { q, page: 1, limit: 50 };
+      if (targetUuid) {
+        auctionQuery.mine = 'true';
+        auctionQuery.role = 'all';
+      }
+      const subject = targetUuid ? { uuid: targetUuid, role: 'PLAYER' } : adminViewer;
+      const historyRes = await auctionService.getAuctionHistory(
+        auctionQuery,
+        subject,
+        options
+      );
+
+      for (const auc of historyRes.items) {
+        const valueRaw = auc.price?.raw || 0;
+        const flags = [];
+        if (valueRaw >= 4096) flags.push('HIGH_VALUE_AUCTION');
+
+        entries.push({
+          auditId: `AUCTION:${auc.id}`,
+          type: 'AUCTION',
+          timestamp: auc.soldAt || auc.listedAt || null,
+          valueCopper: valueRaw,
+          valueFormatted: auc.price?.formatted || '0 Vàng 0 Bạc 0 Đồng',
+          flags,
+          participants: {
+            from: auc.seller,
+            to: auc.buyer,
+          },
+          summary: auc.item
+            ? `${auc.item.displayName || auc.item.type} (x${auc.item.amount})`
+            : 'Unknown Item',
+          detail: auc,
+        });
+      }
+    }
+
+    if (normalizedType === 'ALL' || normalizedType === 'TRADE') {
+      const tradeQuery = {
+        player: targetUuid || undefined,
+        q,
+        from,
+        to,
+        page: 1,
+        limit: 50,
+      };
+      const tradeRes = await tradeService.getTrades(tradeQuery, adminViewer, options);
+
+      for (const tr of tradeRes.items) {
+        const c1 = tr.side1.currency?.raw || 0;
+        const c2 = tr.side2.currency?.raw || 0;
+        const totalCopper = c1 + c2;
+
+        const isOneSided =
+          (tr.side1.itemCount === 0 && tr.side2.itemCount > 0) ||
+          (tr.side2.itemCount === 0 && tr.side1.itemCount > 0);
+
+        const flags = [];
+        if (isOneSided) flags.push('ONE_SIDED_TRANSFER');
+        if (totalCopper >= 4096) flags.push('HIGH_VALUE_CURRENCY');
+
+        entries.push({
+          auditId: `TRADE:${tr.id}`,
+          type: 'TRADE',
+          timestamp: tr.tradedAt || null,
+          valueCopper: totalCopper,
+          valueFormatted: formatCurrency(totalCopper).formatted,
+          flags,
+          participants: {
+            side1: tr.side1.player,
+            side2: tr.side2.player,
+          },
+          summary: `${tr.side1.player.username} (${tr.side1.itemCount} món) ↔ ${tr.side2.player.username} (${tr.side2.itemCount} món)`,
+          detail: tr,
+        });
+      }
+    }
+
+    const filtered = entries.filter((entry) => {
+      if (minThreshold > 0 && entry.valueCopper < minThreshold) return false;
+      if (onlyOneSided && !entry.flags.includes('ONE_SIDED_TRANSFER')) return false;
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      const tA = a.timestamp ? Date.parse(a.timestamp) : 0;
+      const tB = b.timestamp ? Date.parse(b.timestamp) : 0;
+      return tB - tA;
+    });
+
+    const start = (safePage - 1) * safeLimit;
+    const items = filtered.slice(start, start + safeLimit);
+
+    return {
+      items,
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total: filtered.length,
+        totalPages: Math.max(1, Math.ceil(filtered.length / safeLimit)),
+      },
+    };
   }
 }
 

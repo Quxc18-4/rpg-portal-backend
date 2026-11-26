@@ -260,6 +260,141 @@ class OperatorRepository {
       .limit(limit)
       .toArray();
   }
+  async getEconomyOverviewMetrics() {
+    const db = mongoose.connection.db;
+    const cols = await db.listCollections().toArray();
+    const existingNames = new Set(cols.map((c) => c.name));
+    const tradeColName = await this.resolveCollectionName([
+      'trade_logs',
+      'trades',
+      'trade_history',
+    ]);
+    const now = Date.now();
+
+    const [
+      playerStatsAgg,
+      vipCount,
+      totalGuilds,
+      guildBankAgg,
+      activeAuctionsCount,
+      activeAuctionAgg,
+      soldAuctionsCount,
+      soldAuctionAgg,
+      totalTradesCount,
+    ] = await Promise.all([
+      db
+        .collection('players')
+        .aggregate([
+          {
+            $project: {
+              slotsArr: { $objectToArray: { $ifNull: ['$slots', {}] } },
+              rootBalance: { $ifNull: ['$balance', { $ifNull: ['$coins', 0] }] },
+            },
+          },
+          {
+            $project: {
+              playerCoins: {
+                $cond: [
+                  { $gt: [{ $size: '$slotsArr' }, 0] },
+                  {
+                    $reduce: {
+                      input: '$slotsArr',
+                      initialValue: 0,
+                      in: {
+                        $add: ['$$value', { $ifNull: ['$$this.v.balance', 0] }],
+                      },
+                    },
+                  },
+                  '$rootBalance',
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              totalPlayers: { $sum: 1 },
+              totalCoins: { $sum: '$playerCoins' },
+            },
+          },
+        ])
+        .toArray(),
+      existingNames.has('player_accounts')
+        ? db.collection('player_accounts').countDocuments({
+            is_vip: true,
+            $or: [
+              { vip_expires_at: { $exists: false } },
+              { vip_expires_at: null },
+              { vip_expires_at: 0 },
+              { vip_expires_at: { $gt: now } },
+            ],
+          })
+        : 0,
+      existingNames.has('guilds') ? db.collection('guilds').countDocuments({}) : 0,
+      existingNames.has('guilds')
+        ? db
+            .collection('guilds')
+            .aggregate([
+              {
+                $group: {
+                  _id: null,
+                  total: { $sum: { $ifNull: ['$bank-balance', 0] } },
+                },
+              },
+            ])
+            .toArray()
+        : [],
+      existingNames.has('auction_active')
+        ? db.collection('auction_active').countDocuments({})
+        : 0,
+      existingNames.has('auction_active')
+        ? db
+            .collection('auction_active')
+            .aggregate([
+              {
+                $group: {
+                  _id: null,
+                  total: { $sum: { $ifNull: ['$price', 0] } },
+                },
+              },
+            ])
+            .toArray()
+        : [],
+      existingNames.has('auction_history')
+        ? db.collection('auction_history').countDocuments({ status: /^SOLD$/i })
+        : 0,
+      existingNames.has('auction_history')
+        ? db
+            .collection('auction_history')
+            .aggregate([
+              { $match: { status: /^SOLD$/i } },
+              {
+                $group: {
+                  _id: null,
+                  total: { $sum: { $ifNull: ['$price', 0] } },
+                },
+              },
+            ])
+            .toArray()
+        : [],
+      existingNames.has(tradeColName)
+        ? db.collection(tradeColName).countDocuments({})
+        : 0,
+    ]);
+
+    return {
+      totalPlayers: playerStatsAgg[0]?.totalPlayers || 0,
+      vipCount,
+      playerCirculationRaw: playerStatsAgg[0]?.totalCoins || 0,
+      totalGuilds,
+      guildBankTotalRaw: guildBankAgg[0]?.total || 0,
+      activeAuctionsCount,
+      activeAuctionListedRaw: activeAuctionAgg[0]?.total || 0,
+      soldAuctionsCount,
+      soldAuctionVolumeRaw: soldAuctionAgg[0]?.total || 0,
+      totalTradesCount,
+    };
+  }
 }
 
 module.exports = new OperatorRepository();

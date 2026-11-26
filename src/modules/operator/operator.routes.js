@@ -23,6 +23,10 @@ router.get('/dens', operatorController.getAllDens);
 router.get('/ecosystems', operatorController.getAllEcosystems);
 router.get('/rewards', operatorController.getAllRewards);
 router.get('/guilds', operatorController.getAllGuilds);
+router.get('/overview', operatorController.getEconomyOverview);
+router.get('/auctions', operatorController.getAllAuctions);
+router.get('/trades', operatorController.getAllTrades);
+router.get('/audit/transactions', operatorController.getEconomyAuditFeed);
 
 // 2. Inspect chi tiết từng người chơi (MODERATOR + ADMIN)
 router.get('/players/:username/inspect', operatorController.inspectPlayer);
@@ -34,6 +38,8 @@ router.get('/players/:username/crops', operatorController.inspectPlayerCrops);
 router.get('/players/:username/waystones', operatorController.inspectPlayerWaystones);
 router.get('/players/:username/rewards', operatorController.inspectPlayerRewards);
 router.get('/players/:username/quests', operatorController.inspectPlayerQuests);
+router.get('/players/:username/auctions', operatorController.inspectPlayerAuctions);
+router.get('/players/:username/trades', operatorController.inspectPlayerTrades);
 
 // 3. Hàng đợi thực thi lệnh (MODERATOR theo giới hạn policy / ADMIN không giới hạn)
 router.post('/players/:username/actions', operatorController.executeAction);

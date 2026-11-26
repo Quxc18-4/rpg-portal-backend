@@ -425,6 +425,18 @@ const MESSAGES = {
     vi: 'Bạn không có quyền xem chi tiết giao dịch của người chơi khác',
     en: 'You are not authorized to view another player\'s trade details',
   },
+  OPERATOR_OVERVIEW_SUCCESS: {
+    vi: 'Lấy thống kê tổng quan kinh tế & máy chủ thành công',
+    en: 'Server and economy overview retrieved successfully',
+  },
+  OPERATOR_AUCTIONS_ALL_SUCCESS: {
+    vi: 'Lấy danh sách chợ đấu giá toàn máy chủ thành công',
+    en: 'Server-wide auction listings retrieved successfully',
+  },
+  OPERATOR_AUDIT_FEED_SUCCESS: {
+    vi: 'Lấy nhật ký kiểm toán giao dịch kinh tế thành công',
+    en: 'Economy transaction audit feed retrieved successfully',
+  },
 };
 
 const normalizeLang = (rawLang) => {

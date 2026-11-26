@@ -316,6 +316,87 @@ class OperatorController {
       next(error);
     }
   }
+  // --- KIỂM TOÁN KINH TẾ & CHỢ ---
+  async getEconomyOverview(req, res, next) {
+    try {
+      const data = await operatorService.getEconomyOverview();
+      return ApiResponse.success(res, data, 'OPERATOR_OVERVIEW_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAllAuctions(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const lang = resolveLang(req);
+      const data = await operatorService.getAllAuctionsAdmin(req.query, {
+        includeRaw,
+        lang,
+      });
+      return ApiResponse.success(res, data, 'OPERATOR_AUCTIONS_ALL_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getAllTrades(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const lang = resolveLang(req);
+      const data = await operatorService.getAllTradesAdmin(req.query, {
+        includeRaw,
+        lang,
+      });
+      return ApiResponse.success(res, data, 'MARKET_TRADES_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getEconomyAuditFeed(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const lang = resolveLang(req);
+      const data = await operatorService.getEconomyAuditFeed(req.query, {
+        includeRaw,
+        lang,
+      });
+      return ApiResponse.success(res, data, 'OPERATOR_AUDIT_FEED_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async inspectPlayerAuctions(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const lang = resolveLang(req);
+      const data = await operatorService.inspectPlayerAuctions(
+        req.params.username,
+        req.query,
+        { includeRaw, lang }
+      );
+      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async inspectPlayerTrades(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const lang = resolveLang(req);
+      const data = await operatorService.inspectPlayerTrades(
+        req.params.username,
+        req.query,
+        { includeRaw, lang }
+      );
+      return ApiResponse.success(res, data, 'ADMIN_INSPECT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new OperatorController();
