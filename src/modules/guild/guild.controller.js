@@ -23,6 +23,44 @@ class GuildController {
     }
   }
 
+  async getMyGuildVault(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const lang = resolveLang(req);
+      const data = await guildService.getMyGuildVault(req.user, {
+        page: req.query.page,
+        pages: req.query.pages,
+        q: req.query.q,
+        itemPage: req.query.itemPage,
+        itemLimit: req.query.itemLimit,
+        includeRaw,
+        lang,
+      });
+      return ApiResponse.success(res, data, 'GUILD_VAULT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getGuildVaultById(req, res, next) {
+    try {
+      const includeRaw = req.query.raw === 'true';
+      const lang = resolveLang(req);
+      const data = await guildService.getGuildVaultById(req.params.id, req.user, {
+        page: req.query.page,
+        pages: req.query.pages,
+        q: req.query.q,
+        itemPage: req.query.itemPage,
+        itemLimit: req.query.itemLimit,
+        includeRaw,
+        lang,
+      });
+      return ApiResponse.success(res, data, 'GUILD_VAULT_SUCCESS');
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getGuildById(req, res, next) {
     try {
       const includeRaw = req.query.raw === 'true';

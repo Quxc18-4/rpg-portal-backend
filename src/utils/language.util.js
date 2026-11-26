@@ -381,6 +381,14 @@ const MESSAGES = {
     vi: 'Lấy danh sách toàn bộ bang hội thành công',
     en: 'All guilds retrieved successfully',
   },
+  GUILD_VAULT_FORBIDDEN: {
+    vi: 'Chỉ thành viên bang hội mới có quyền xem kho bang',
+    en: 'Only guild members can view the guild vault',
+  },
+  GUILD_VAULT_SUCCESS: {
+    vi: 'Lấy thông tin kho bang hội thành công',
+    en: 'Guild vault retrieved successfully',
+  },
 };
 
 const normalizeLang = (rawLang) => {
