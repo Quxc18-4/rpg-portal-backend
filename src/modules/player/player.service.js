@@ -9,6 +9,31 @@ const { decodeItemStackBase64, decodeTrinketsMap } = require('../../utils/itemDe
 const { AppError } = require('../../utils/error.util');
 const { DEFAULT_LANG, t } = require('../../utils/language.util');
 
+// Mirror từ RPGPlayer.getRequiredExp()
+function getRequiredPlayerExp(level) {
+  const safeLevel = Math.max(1, Number(level || 1));
+  const baseExp = 300 + safeLevel * 150 + Math.pow(safeLevel, 3.0) * 1.5;
+
+  let stageMultiplier = 1.0; // Lv 1 - 15
+  if (safeLevel >= 16 && safeLevel < 22) {
+    stageMultiplier = 1.5; // Hơi chững lại (1-2 tuần)
+  } else if (safeLevel >= 22 && safeLevel < 32) {
+    stageMultiplier = 3.0; // Bắt đầu khó (> 2 tuần)
+  } else if (safeLevel >= 32 && safeLevel < 50) {
+    stageMultiplier = 6.0; // Cao (1-2 tháng)
+  } else if (safeLevel >= 50 && safeLevel < 75) {
+    stageMultiplier = 15.0; // Cày cuốc (3 tháng)
+  } else if (safeLevel >= 75 && safeLevel < 101) {
+    stageMultiplier = 30.0; // Dài hạn (6 tháng)
+  } else if (safeLevel >= 101 && safeLevel < 150) {
+    stageMultiplier = 50.0; // Rất dài hạn (1 năm)
+  } else if (safeLevel >= 150) {
+    stageMultiplier = 80.0; // Tối thượng (2 năm)
+  }
+
+  return baseExp * stageMultiplier;
+}
+
 class PlayerService {
   async resolveAccessLevel(targetPlayer, viewerUser) {
     if (!viewerUser || !viewerUser.uuid) return 'PUBLIC';
@@ -43,9 +68,10 @@ class PlayerService {
       };
     }
 
-    const targetSlot = requestedSlot !== null && requestedSlot !== undefined
-      ? Number(requestedSlot)
-      : activeSlot;
+    const targetSlot =
+      requestedSlot !== null && requestedSlot !== undefined
+        ? Number(requestedSlot)
+        : activeSlot;
 
     if (!Number.isInteger(targetSlot) || targetSlot < 1 || targetSlot > maxSlots) {
       throw AppError.badRequest('INVALID_CHARACTER_SLOT');
@@ -133,6 +159,8 @@ class PlayerService {
       vipState.maxSlots
     );
 
+    const level = Number(slotData.level || 1);
+
     // 1. Dữ liệu Public tối thiểu
     const profile = {
       accessLevel,
@@ -144,13 +172,22 @@ class PlayerService {
       activeSlot,
       selectedSlot,
       class: slotData.class || 'commoner',
-      level: Number(slotData.level || 1),
+      level,
     };
 
     // 2. Mở khóa cho Bạn bè hoặc Chính chủ
     if (accessLevel === 'FRIEND' || accessLevel === 'OWNER') {
+      const currentExp = Number(slotData.exp ?? 0);
+      const requiredExp = getRequiredPlayerExp(level);
+      const expProgressPercent = Math.min(
+        100,
+        Math.max(0, Number(((currentExp / requiredExp) * 100).toFixed(2)))
+      );
+
       profile.resource = slotData.resource ?? 100;
-      profile.exp = slotData.exp ?? 0;
+      profile.exp = currentExp;
+      profile.requiredExp = requiredExp;
+      profile.expProgressPercent = expProgressPercent;
       profile.elements = slotData.elements || [];
       profile.attributes = slotData.attributes || {
         unspent: 0,
@@ -238,7 +275,8 @@ class PlayerService {
 
   async getMyInventory(viewerUser, options = {}) {
     const lang = options.lang || DEFAULT_LANG;
-    const requestedSlot = options.slot !== undefined && options.slot !== null ? Number(options.slot) : null;
+    const requestedSlot =
+      options.slot !== undefined && options.slot !== null ? Number(options.slot) : null;
 
     const player = await playerRepo.findByUsername(viewerUser.username);
     if (!player) {

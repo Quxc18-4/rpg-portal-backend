@@ -1,6 +1,12 @@
 const jobRepo = require('./job.repository');
 const { formatCurrency } = require('../../utils/currency.util');
 
+// Mirror từ JobManager.getRequiredJobExp(currentLevel)
+function getRequiredJobExp(level) {
+  const safeLevel = Math.max(1, Number(level || 1));
+  return Math.pow(safeLevel, 2) * 50 + 500;
+}
+
 class JobService {
   async getMyJobs(uuid) {
     const doc = await jobRepo.findByUuid(uuid);
@@ -22,9 +28,19 @@ class JobService {
 
     const jobs = {};
     for (const jobId of jobKeys) {
+      const level = Number(levels[jobId] || 1);
+      const exp = Number(exps[jobId] || 0);
+      const requiredExp = getRequiredJobExp(level);
+      const progressPercent = Math.min(
+        100,
+        Math.max(0, Number(((exp / requiredExp) * 100).toFixed(1)))
+      );
+
       jobs[jobId] = {
-        level: levels[jobId] || 1,
-        exp: exps[jobId] || 0,
+        level,
+        exp,
+        requiredExp,
+        progressPercent,
         points: doc.jobPoints?.[jobId] || 0,
         unlockedSkills: doc.unlockedSkills?.[jobId] || [],
       };
