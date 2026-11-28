@@ -72,7 +72,12 @@ class LicenseService {
         Object.keys(doc.contributors).forEach((uuid) => uuidSet.add(uuid));
       }
     }
-    const usernameMap = await operatorRepo.buildUsernameMap([...uuidSet]);
+
+    const itemIds = docs.map((d) => d.item_id).filter(Boolean);
+    const [usernameMap, historyMap] = await Promise.all([
+      operatorRepo.buildUsernameMap([...uuidSet]),
+      licenseRepo.findRecentHistoryByItemIds(itemIds, 3),
+    ]);
 
     const licenses = docs.map((doc) => {
       const totalActiveDeposited = Number(doc.current_amount ?? 0);
@@ -132,6 +137,16 @@ class LicenseService {
         };
       }
 
+      const recentWinners = (historyMap.get(doc.item_id) || []).map((h) => ({
+        winnerUuid: h.winner_uuid || null,
+        winnerName: h.winner_name || 'Unknown',
+        completedTarget: Number(h.completed_target ?? 0),
+        nextTarget: Number(h.next_target ?? currentTargetAmount),
+        completedAt: h.completed_at
+          ? new Date(Number(h.completed_at)).toISOString()
+          : h.settledAt || null,
+      }));
+
       const formatted = {
         id: String(doc._id),
         itemId: doc.item_id,
@@ -147,6 +162,7 @@ class LicenseService {
           activeRacersCount: activeRacers.length,
         },
         contributorsCount: contributorList.length,
+        recentWinners,
         topInvestors: contributorList
           .slice(0, 5)
           .map(({ username, currentAmount, targetAmount, progressPercent, completedCount }) => ({
